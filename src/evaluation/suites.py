@@ -93,23 +93,36 @@ def _compute_cost_sensitivity(
     trades: pd.DataFrame,
     cost_multipliers: list[float] = [0.5, 1.0, 1.5, 2.0, 3.0]
 ) -> pd.DataFrame:
-    """Compute performance under different cost assumptions."""
+    """Compute performance under different cost assumptions.
+    
+    Adjusts total return based on cost as percentage of equity.
+    """
     if nav.empty or trades.empty:
         return pd.DataFrame()
     
-    # 使用backtest实际字段: fee
+    # 使用backtest实际字段: fee (RMB) and equity
+    # 计算成本占初始资金的比例
+    initial_nav = nav['nav'].iloc[0] if 'nav' in nav.columns else 1.0
+    if 'equity' in nav.columns:
+        initial_equity = nav['equity'].iloc[0]
+    else:
+        initial_equity = initial_nav * 1e6  # 假设初始资金100万
+    
     base_cost = trades['fee'].sum() if 'fee' in trades.columns else 0.0
+    cost_ratio = base_cost / max(initial_equity, 1e-9)
+    
     results = []
     
     for mult in cost_multipliers:
-        adjusted_nav = nav.copy()
-        adjusted_nav['nav'] = adjusted_nav['nav'] + base_cost * (mult - 1)
-        adjusted_nav['total_return'] = adjusted_nav['nav'] / adjusted_nav['nav'].iloc[0] - 1
+        adjusted_cost_ratio = cost_ratio * mult
+        adjusted_return = initial_nav * (1 - adjusted_cost_ratio) / initial_nav - 1
+        adjusted_return = (1 - adjusted_cost_ratio) - 1
         
         results.append({
             'cost_multiplier': mult,
-            'total_return': float(adjusted_nav['total_return'].iloc[-1]),
+            'total_return': float(adjusted_return),
             'total_cost': float(base_cost * mult),
+            'cost_ratio': float(adjusted_cost_ratio),
         })
     
     return pd.DataFrame(results)

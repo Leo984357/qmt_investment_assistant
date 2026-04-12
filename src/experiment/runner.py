@@ -495,15 +495,9 @@ def run_experiment(config_path: str | Path) -> dict:
         artifact_path = save_artifact(artifact, run_dir / 'metadata')
         logger.info("Saved experiment artifact: %s", artifact_path)
         
-        artifact_summary = {
-            'run_id': artifact.run_id,
-            'experiment_name': artifact.experiment_name,
-            'config_hash': artifact.config_hash[:16],
-            'gate_passed': artifact.gate_passed,
-            'gate_score': artifact.gate_score,
-        }
+        # Write full artifact to metadata/experiment_artifact.json for reproducibility
         (run_dir / 'metadata' / 'experiment_artifact.json').write_text(
-            json.dumps(artifact_summary, ensure_ascii=False, indent=2), encoding='utf-8'
+            json.dumps(artifact.to_dict(), ensure_ascii=False, indent=2), encoding='utf-8'
         )
     except Exception as e:
         logger.warning("Failed to save experiment artifact: %s", e)

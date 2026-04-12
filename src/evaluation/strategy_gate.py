@@ -430,10 +430,13 @@ class StrategyGate:
                 message="无交易数据，跳过检查",
             )
         
-        # 估算换手率 (使用backtest实际字段: notional, trade_date)
-        if 'notional' in trades.columns and 'trade_date' in trades.columns:
-            turnover_by_date = trades.groupby('trade_date')['notional'].sum()
-            avg_turnover = turnover_by_date.mean()
+        # 估算换手率 (使用backtest实际字段: turnover 是百分比, notional需归一化)
+        if 'turnover' in trades.columns and 'trade_date' in trades.columns:
+            avg_turnover = trades.groupby('trade_date')['turnover'].mean().mean()
+        elif 'notional' in trades.columns and 'trade_date' in trades.columns and not nav.empty:
+            equity = nav['equity'].iloc[-1] if 'equity' in nav.columns else nav['nav'].iloc[-1] * 1e6
+            avg_notional = trades.groupby('trade_date')['notional'].sum().mean()
+            avg_turnover = avg_notional / max(equity, 1e-9)
         else:
             avg_turnover = 0.0
         
