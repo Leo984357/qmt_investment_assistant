@@ -1,0 +1,10 @@
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2024-01-02'
+  end_date: latest_completed
+  universe_name: HS300
+  bootstrap_if_missing: true
+  incremental: true
+  universe_refresh_frequency_days: 1
+  price_adjust: qfq

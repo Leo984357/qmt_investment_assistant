@@ -1,0 +1,97 @@
+name: hs300_all_financial_factors
+description: >
+  全量财务因子测试 - 22个已注册因子
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2022-09-01'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: all_financial
+  version: v1
+  names:
+    # Value factors
+    - earnings_yield
+    - book_to_price
+    - gross_margin
+    - operating_margin
+    - net_margin
+    # Profitability
+    - roe
+    - roe_weighted
+    - roa
+    - total_roa
+    - ocf_per_share
+    # Growth
+    - revenue_growth
+    - profit_growth
+    - equity_growth
+    - asset_growth
+    # Leverage
+    - debt_ratio
+    - current_ratio
+    - quick_ratio
+    - cash_ratio
+    # Efficiency
+    - asset_turnover
+    - inv_turnover
+    - ar_turnover
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+  financial_data_enabled: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: simple_average
+  version: v1
+  registry_stage: research
+  fallback_model: earnings_yield_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 5000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  risk_model: qmt_style_ladder
+  risk_ma_short_window: 60
+  risk_ma_long_window: 120
+  risk_momentum_window: 20
+  risk_mid_exposure: 0.80
+  risk_low_exposure: 0.55
+  risk_crash_exposure: 0.40
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5

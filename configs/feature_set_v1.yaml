@@ -1,0 +1,203 @@
+name: feature_set_v1
+description: >
+  特征层 v1 - 精选9因子去冗余池
+  
+  基于203个候选因子的多维度分析：
+  1. IC测试 - 筛选IC>0.02的有效因子
+  2. 健康检查 - 筛选单调性>0.6的因子
+  3. 冗余检测 - 去除相关>0.7的因子
+  
+  最终保留9个因子，覆盖3个家族
+
+version: v1
+created_date: '2026-04-11'
+status: production
+
+# ============================================================
+# 一、Production 因子 (可直接进模型)
+# ============================================================
+production_factors:
+  - name: roe
+    family: profitability
+    source: financial
+    ic_direction: positive
+    role: primary
+    preprocessing:
+      winsorize: [0.01, 0.99]
+      neutralize: industry
+      standardize: true
+
+  - name: earnings_yield
+    family: value
+    source: financial
+    ic_direction: positive
+    role: primary
+    preprocessing:
+      winsorize: [0.01, 0.99]
+      neutralize: null
+      standardize: true
+
+  - name: operating_margin
+    family: profitability
+    source: financial
+    ic_direction: positive
+    role: primary
+    preprocessing:
+      winsorize: [0.01, 0.99]
+      neutralize: industry
+      standardize: true
+
+  - name: equity_growth
+    family: growth
+    source: financial
+    ic_direction: positive
+    role: primary
+    preprocessing:
+      winsorize: [0.05, 0.95]
+      neutralize: size
+      standardize: true
+
+  - name: ocf_per_share
+    family: profitability
+    source: financial
+    ic_direction: positive
+    role: auxiliary
+    preprocessing:
+      winsorize: [0.01, 0.99]
+      neutralize: industry
+      standardize: true
+
+  - name: revenue_growth
+    family: growth
+    source: financial
+    ic_direction: positive
+    role: auxiliary
+    preprocessing:
+      winsorize: [0.05, 0.95]
+      neutralize: size
+      standardize: true
+
+  - name: asset_turnover
+    family: efficiency
+    source: financial
+    ic_direction: positive
+    role: auxiliary
+    preprocessing:
+      winsorize: [0.01, 0.99]
+      neutralize: industry
+      standardize: true
+
+  - name: gross_margin
+    family: profitability
+    source: financial
+    ic_direction: positive
+    role: auxiliary
+    preprocessing:
+      winsorize: [0.01, 0.99]
+      neutralize: industry
+      standardize: true
+
+  - name: cash_ratio
+    family: liquidity
+    source: financial
+    ic_direction: positive
+    role: auxiliary
+    preprocessing:
+      winsorize: [0.01, 0.99]
+      neutralize: null
+      standardize: true
+
+# ============================================================
+# 二、Support 因子 (条件组合有价值)
+# ============================================================
+support_factors:
+  # 待验证的条件因子
+  # 可根据市场状态选择性使用
+
+# ============================================================
+# 三、Quarantine 因子 (隔离观察)
+# ============================================================
+quarantine_factors:
+  - name: profit_growth
+    reason: 单调性差，分数0.0
+    quarantine_date: '2026-04-11'
+    
+  - name: sector_adj_close_position
+    reason: IC为负，-0.004
+    quarantine_date: '2026-04-11'
+    
+  - name: inv_turnover
+    reason: IC为负，-0.03
+    quarantine_date: '2026-04-11'
+    
+  - name: debt_ratio
+    reason: IC为负，-0.12
+    quarantine_date: '2026-04-11'
+    
+  - name: sector_adj_trend_strength
+    reason: IC为负，-0.08
+    quarantine_date: '2026-04-11'
+
+# ============================================================
+# 四、冗余组 (组内只保留一个)
+# ============================================================
+redundancy_groups:
+  roe_group:
+    retained: roe
+    removed: [roe_weighted, total_roa]
+    reason: 'roe与这两个相关性>0.75'
+    
+  margin_group:
+    retained: operating_margin
+    removed: [net_margin]
+    reason: 'operating_margin与net_margin相关性=1.0'
+    
+  growth_group:
+    retained: equity_growth
+    removed: [asset_growth]
+    reason: 'equity_growth与asset_growth相关性=0.85'
+
+# ============================================================
+# 五、因子统计
+# ============================================================
+statistics:
+  total_candidates: 203
+  passed_health_check: 14
+  deduplicated_final: 9
+  production: 9
+  support: 0
+  quarantine: 5
+
+# ============================================================
+# 六、预处理统一规则
+# ============================================================
+preprocessing_rules:
+  winsorize:
+    default: [0.01, 0.99]
+    growth_factors: [0.05, 0.95]  # 增长因子更宽，避免极端值影响
+
+  standardize:
+    method: zscore
+    apply_to_all: true
+
+  neutralization:
+    profitability_factors: industry
+    growth_factors: size
+    value_factors: null
+    efficiency_factors: industry
+    liquidity_factors: null
+
+  missing_values:
+    fill_method: cross_sectional_median
+    add_flag: false
+
+# ============================================================
+# 七、版本历史
+# ============================================================
+version_history:
+  v1:
+    date: '2026-04-11'
+    factors: 9
+    notes: '初始版本，基于IC测试+健康检查+冗余检测'
+    expected_ic: 0.068
+    expected_ir: 0.55

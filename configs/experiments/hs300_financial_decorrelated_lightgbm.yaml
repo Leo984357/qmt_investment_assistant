@@ -1,0 +1,96 @@
+name: hs300_financial_decorrelated_lightgbm
+description: >
+  精简财务因子 + LightGBM
+  去除冗余因子，保留12个核心因子
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2022-09-01'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: financial_decorrelated
+  version: v1
+  names:
+    # 核心财务因子 (去除冗余后)
+    - total_roa              # ROE系列代表 IC=0.028
+    - earnings_yield          # IC=0.028
+    - ocf_per_share          # IC=0.019
+    - asset_growth           # IC=0.016
+    - operating_margin       # Margin系列代表 IC=0.014
+    - equity_growth          # IC=0.010
+    - current_ratio          # Liquidity系列代表 IC=0.008
+    - book_to_price          # IC=0.008
+    - inv_turnover           # IC=0.005
+    - asset_turnover         # IC=0.004
+    - revenue_growth         # IC=0.004
+    - sector_adj_close_position  # Sector-Adj代表 IC=0.002
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+  financial_data_enabled: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: lightgbm_regression
+  version: v1
+  registry_stage: research
+  fallback_model: simple_average
+  train_window_days: 500
+  valid_window_days: 60
+  min_train_samples: 100
+  params:
+    n_estimators: 100
+    max_depth: 4
+    learning_rate: 0.05
+    num_leaves: 15
+    min_child_samples: 50
+    subsample: 0.8
+    colsample_bytree: 0.8
+    reg_alpha: 0.1
+    reg_lambda: 1.0
+    early_stopping_rounds: 30
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 25
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  risk_model: qmt_style_ladder
+  risk_ma_short_window: 60
+  risk_ma_long_window: 120
+  risk_momentum_window: 20
+  risk_mid_exposure: 0.80
+  risk_low_exposure: 0.55
+  risk_crash_exposure: 0.40
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 250000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5

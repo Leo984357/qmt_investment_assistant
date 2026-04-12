@@ -1,0 +1,5 @@
+project_name: QMT Investment Assistant
+db_path: db/meta.sqlite
+timezone: Asia/Shanghai
+strategy_name: demo_rotation
+latest_n_days: 180

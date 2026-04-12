@@ -1,0 +1,62 @@
+name: smoke_platform_run
+description: Small end-to-end experiment used for integration testing.
+data:
+  source: mock_ashare
+  snapshot_id: smoke_snapshot_v1
+  start_date: '2023-01-02'
+  end_date: '2024-06-28'
+  universe_name: HS300
+  n_symbols_master: 90
+  n_universe: 60
+  seed: 11
+  bootstrap_if_missing: true
+features:
+  set_name: smoke_factor_set
+  version: v1
+  names:
+    - mom20
+    - mom60
+    - mom120
+    - rev5
+    - amihud_illiq_20d
+  winsorize_limits: [0.02, 0.98]
+  zscore: true
+  fill_missing: false
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: lightgbm_regression
+  version: smoke
+  registry_stage: research
+  fallback_model: linear_factor_blend
+  train_window_days: 80
+  valid_window_days: 20
+  min_train_samples: 600
+  params:
+    n_estimators: 60
+    learning_rate: 0.05
+    num_leaves: 15
+    subsample: 0.9
+    colsample_bytree: 0.8
+    min_child_samples: 20
+    random_state: 11
+    verbosity: -1
+portfolio:
+  top_n: 10
+  weighting: equal
+  gross_exposure: 0.9
+  defensive_gross: 0.3
+  max_single_weight: 0.15
+  cash_buffer: 0.1
+  min_trade_value: 2000
+  market_filter_lookback: 40
+  market_filter_threshold: 0.0
+backtest:
+  initial_cash: 500000
+  lot_size: 100
+  commission_bps: 3
+  stamp_duty_bps: 10
+  slippage_bps: 8
+  rebalance_frequency_days: 10
+  trade_delay_days: 1

@@ -1,0 +1,10 @@
+backtest:
+  initial_cash: 250000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 5
+  trade_delay_days: 1
+  anchor_mode: follow_backtest_start
+  anchor_date: null

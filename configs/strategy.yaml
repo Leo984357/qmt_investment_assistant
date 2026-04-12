@@ -1,0 +1,8 @@
+strategy:
+  top_n: 5
+  rebalance_cash_buffer: 0.05
+  momentum_lookback: 20
+  long_lookback: 60
+  min_price: 2.0
+  max_single_weight: 0.25
+  target_gross: 0.95

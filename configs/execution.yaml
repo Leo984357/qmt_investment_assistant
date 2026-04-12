@@ -1,0 +1,6 @@
+execution:
+  mode: mock
+  lot_size: 100
+  slippage_bps: 8
+  commission_bps: 0.75
+  stamp_duty_bps: 10

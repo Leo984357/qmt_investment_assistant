@@ -1,0 +1,5 @@
+decision:
+  min_rebalance_l1: 0.12
+  min_trade_value: 1000
+  max_name_changes: 6
+  turnover_penalty_bps: 12

@@ -1,0 +1,11 @@
+akshare>=1.17
+baostock>=0.8.9
+duckdb>=1.5
+lightgbm>=4.6
+mlflow>=3.10
+pandas>=2.2
+numpy>=1.26
+pyarrow>=21.0
+pyyaml>=6.0
+streamlit>=1.32
+tabulate>=0.9

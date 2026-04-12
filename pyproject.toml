@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qmt-investment-assistant"
+version = "0.1.0"
+description = "A local-first QMT investment assistant demo project."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "akshare>=1.17",
+  "baostock>=0.8.9",
+  "duckdb>=1.5",
+  "lightgbm>=4.6",
+  "mlflow>=3.10",
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "plotly>=5.18",
+  "pyarrow>=21.0",
+  "pyyaml>=6.0",
+  "streamlit>=1.32",
+  "tabulate>=0.9",
+]
+
+[project.scripts]
+qmt-assistant = "src.cli:run"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,165 @@
+name: research_contract_v1
+description: >
+  研究合同 v1 - 冻结所有实验的统一口径
+  
+  所有后续实验、模型、风控版本必须在此合同下比较
+  
+  冻结日期: 2026-04-11
+
+# ============================================================
+# 一、股票池
+# ============================================================
+universe:
+  name: HS300
+  mode: point_in_time  # 使用历史成分股，避免未来函数
+  refresh_frequency_days: 20
+  data_source: baostock
+
+# ============================================================
+# 二、时间频率
+# ============================================================
+frequency:
+  data_frequency: daily
+  model_frequency: daily
+  label_frequency: daily
+  portfolio_frequency: daily
+  
+  # 调仓频率统一为10个交易日
+  rebalance_days: 10
+  anchor_mode: fixed  # 固定日期锚点
+
+# ============================================================
+# 三、标签定义
+# ============================================================
+label:
+  name: fwd_return_20d
+  horizon: 20  # 未来20日收益
+  type: raw_return  # 原始收益，非超额收益
+  
+  # 标签清洗
+  clip_range: [-0.30, 0.30]  # clip极端值
+  winsorize: [0.01, 0.99]  # 去极值
+  
+  # 标签时间对齐
+  # 特征日期T → 标签日期T+1 to T+20
+  label_horizon: 20
+  trade_delay_days: 1  # 信号到执行的延迟
+
+# ============================================================
+# 四、调仓规则
+# ============================================================
+rebalance:
+  frequency_days: 10
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'  # 固定锚点
+  
+  # 调仓约束
+  allow_partial_fill: true
+  skip_if_market_limit: true
+
+# ============================================================
+# 五、成交假设
+# ============================================================
+execution:
+  # 使用 next VWAP 估算
+  # 近似为: 当日收盘价 * (1 + 预估滑点)
+  price_model: next_vwap_estimate
+  
+  # 简化: 用当日收盘价作为次日VWAP代理
+  # 后续可校准: historical_open_vs_close_ratio ≈ 1.001
+  close_as_vwap_proxy: true
+  
+  # 滑点
+  slippage_bps: 5  # 5个基点
+
+# ============================================================
+# 六、成本口径
+# ============================================================
+cost:
+  # 佣金 (万分之)
+  commission_bps: 0.75
+  
+  # 印花税 (万分之，仅卖方)
+  stamp_duty_bps: 10.0
+  
+  # 滑点 (基点)
+  slippage_bps: 5
+  
+  # 最小交易额 (低于此值不成交)
+  min_trade_value: 2000
+  
+  # 最小交易单位
+  lot_size: 100
+
+# ============================================================
+# 七、可交易性过滤
+# ============================================================
+tradability:
+  filter_mode: strict_ashare
+  
+  exclude_rules:
+    - is_st: true
+    - is_new_listing: true  # 上市不足60日
+    - is_suspended: true
+    - up_limit_hit: true    # 涨停无法买入
+    - down_limit_hit: true  # 跌停无法卖出
+
+# ============================================================
+# 八、特征预处理 (统一标准)
+# ============================================================
+preprocessing:
+  # 全局设置
+  winsorize_limits: [0.01, 0.99]
+  zscore_standardize: true
+  fill_missing: true
+  
+  # 中性化规则 (按因子类型)
+  neutralization:
+    profitability: industry  # 盈利类因子行业中性
+    growth: size             # 成长类因子市值中性
+    value: null              # 价值类因子不中性
+    liquidity: null          # 流动性因子不中性
+  
+  # 缺失值标记
+  add_missing_flag: false
+
+# ============================================================
+# 九、Walk-Forward 协议
+# ============================================================
+walk_forward:
+  train_window_days: 500
+  valid_window_days: 0  # 不需要验证集
+  test_window_days: 60
+  step_days: 30
+  
+  min_train_samples: 100
+
+# ============================================================
+# 十、评估指标
+# ============================================================
+evaluation:
+  # 主要指标
+  primary_metrics:
+    - rank_ic
+    - rank_ic_ir
+    - sharpe_ratio
+  
+  # 组合指标
+  portfolio_metrics:
+    - total_return
+    - annual_return
+    - max_drawdown
+    - turnover
+  
+  # 成本后评估
+  cost_adjusted: true
+  cost_bps: 15  # 预估总成本15bp
+
+# ============================================================
+# 十一、版本历史
+# ============================================================
+version_history:
+  v1:
+    date: '2026-04-11'
+    notes: '初始版本'
+    status: active

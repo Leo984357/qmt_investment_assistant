@@ -1,0 +1,134 @@
+name: hs300_comprehensive_factors
+description: >
+  全量因子实验 - 扩展因子池
+  财务因子42个 + 流动性因子14个 + 反转因子9个 + 行业调整形态5个
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2022-09-01'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: comprehensive
+  version: v1
+  names:
+    # 财务因子 (42个)
+    - earnings_yield
+    - earnings_yield_weighted
+    - earnings_yield_ex
+    - book_to_price
+    - gross_margin
+    - operating_margin
+    - net_margin
+    - cost_profit_margin
+    - mainbiz_profit_margin
+    - roe
+    - roe_weighted
+    - roe_assets
+    - roa
+    - total_roa
+    - total_roa_net
+    - mainbiz_profit_ratio
+    - ocf_per_share
+    - retained_earnings_per_share
+    - capital_reserve_per_share
+    - revenue_growth
+    - profit_growth
+    - equity_growth
+    - asset_growth
+    - debt_ratio
+    - current_ratio
+    - quick_ratio
+    - cash_ratio
+    - interest_coverage
+    - equity_ratio
+    - equity_ratio_total
+    - longterm_debt_ratio
+    - capital_fix_ratio
+    - liquidation_ratio
+    - asset_turnover
+    - inv_turnover
+    - ar_turnover
+    - fixasset_turnover
+    - inv_turnover_days
+    - ar_turnover_days
+    - asset_turnover_days
+    - three_expense_ratio
+    - dividend_payout_ratio
+    - investment_return_ratio
+    # 流动性因子 (14个)
+    - amihud_illiq_20d
+    - relative_volume_20d
+    - volume_skew_20d
+    - price_impact_20d
+    - high_low_range_20d
+    - turnover_rate_20d
+    # 反转因子 (9个)
+    - short_term_reversal_5d
+    - mid_term_reversal_20d
+    - opening_gap
+    - intraday_reversal
+    # 行业调整形态 (5个)
+    - sector_adj_trend_strength
+    - sector_adj_close_position
+    - sector_adj_volume_momentum
+    - sector_adj_up_day_ratio
+    - sector_adj_consecutive_up
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+  financial_data_enabled: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: simple_average
+  version: v1
+  registry_stage: research
+  fallback_model: earnings_yield_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 25
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  risk_model: qmt_style_ladder
+  risk_ma_short_window: 60
+  risk_ma_long_window: 120
+  risk_momentum_window: 20
+  risk_mid_exposure: 0.80
+  risk_low_exposure: 0.55
+  risk_crash_exposure: 0.40
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 250000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5

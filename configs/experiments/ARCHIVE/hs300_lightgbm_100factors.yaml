@@ -1,0 +1,165 @@
+name: hs300_lightgbm_100factors
+description: >
+  百因子策略
+  - 使用104个因子
+  - 自动因子筛选
+  - 动态IC监控
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2024-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: full_100factors
+  version: v1
+  names:
+    - mom5
+    - mom10
+    - mom20
+    - mom30
+    - mom60
+    - mom90
+    - mom120
+    - mom250
+    - rev1
+    - rev3
+    - rev5
+    - rev10
+    - rev20
+    - vol5
+    - vol10
+    - vol20
+    - vol30
+    - vol60
+    - vol120
+    - vol_ratio_5_20
+    - vol_ratio_10_60
+    - vol_ratio_20_60
+    - vol_ratio_5_60
+    - vol_ratio_20_120
+    - vol_growth5
+    - vol_growth20
+    - vol_growth60
+    - price_position20
+    - price_position60
+    - price_position120
+    - price_position250
+    - high_low_pos20
+    - high_low_pos60
+    - high_low_pos120
+    - close_to_high20
+    - close_to_high60
+    - close_to_high120
+    - close_to_high250
+    - close_to_low20
+    - close_to_low60
+    - bb_position20
+    - bb_position60
+    - log_ret5
+    - log_ret20
+    - log_ret60
+    - ma5_ratio
+    - ma10_ratio
+    - ma20_ratio
+    - ma60_ratio
+    - mom_accel_5_20
+    - mom_accel_20_60
+    - pv_corr20
+    - pv_corr60
+    - ret_discrete5
+    - ret_discrete20
+    - return_skew20
+    - return_skew60
+    - return_kurt20
+    - return_kurt60
+    - macd_signal
+    - ma_cross_strength
+    - atr14
+    - atr20
+    - rsi6
+    - rsi12
+    - williams_r14
+    - williams_r28
+    - cci14
+    - cci20
+    - kdj_j
+    - obv_slope20
+    - trend_strength20
+    - trend_strength60
+    - ma_convergence
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: lightgbm_regression
+  version: v1
+  registry_stage: research
+  fallback_model: mom20_zscore
+  fallback_feature: mom20
+  score_blend_feature: mom20
+  score_blend_weight_model: 0.90
+  score_blend_weight_feature: 0.10
+  label_clip: [-0.30, 0.30]
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 800
+  training_embargo_days: 5
+  params:
+    n_estimators: 300
+    learning_rate: 0.02
+    num_leaves: 63
+    max_depth: 7
+    subsample: 0.8
+    subsample_freq: 1
+    colsample_bytree: 0.6
+    min_child_samples: 50
+    reg_lambda: 3.0
+    random_state: 42
+    verbosity: -1
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 5000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  risk_model: qmt_style_ladder
+  risk_ma_short_window: 60
+  risk_ma_long_window: 120
+  risk_momentum_window: 20
+  risk_mid_exposure: 0.80
+  risk_low_exposure: 0.55
+  risk_crash_exposure: 0.40
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5

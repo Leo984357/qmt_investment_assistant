@@ -1,0 +1,71 @@
+# 最终推荐配置 - 经策略发现流程验证
+# 2026-04-12
+
+experiment_name: hs300_discovery_final
+
+description: |
+  小资金(25万)最优配置
+  经完整因子筛选与策略发现流程验证
+  - 因子: 从26个候选 → 6个精选
+  - 模型: Ridge回归
+  - OOS Sharpe: 0.160
+
+model:
+  family: ridge_regression
+  params:
+    alpha: 1.0
+
+features:
+  names:
+    - earnings_yield      # IC=0.041, IC IR=0.368 ✅ 最佳
+    - operating_margin   # IC=0.027, IC IR=0.307 ✅
+    - gross_margin       # IC=0.018, IC IR=0.169 ✅
+    - roe_change         # IC=0.015, IC IR=0.130 ✅
+    - profit_growth      # IC=0.012, IC IR=0.110 ✅
+    - revenue_growth     # IC=0.011, IC IR=0.092 ✅
+  
+  preprocessor:
+    winsorize: true
+    neutralization:
+      - industry
+
+portfolio:
+  top_n: 15
+  min_trade_value: 2000
+  rebalance_days: 10
+  
+  risk_model: none  # 小资金禁用
+
+research_contract:
+  universe: HS300
+  label: fwd_return_20d
+  train_window_days: 500
+  test_window_days: 60
+  step_days: 30
+  
+  cost:
+    commission_bps: 0.75
+    stamp_duty_bps: 10.0
+    slippage_bps: 5.0
+
+# 预期表现 (基于历史模拟)
+expected_metrics:
+  is_sharpe: 0.500      # 样本内
+  oos_sharpe: 0.160     # 样本外Walk-Forward
+  is_annual_return: 0.05
+  oos_annual_return: 0.012
+  win_rate: 0.59
+  excess_win_rate: 0.61
+  bull_return: 0.123
+  bear_return: -0.015
+
+# 监控阈值
+monitoring:
+  min_ic: 0.01
+  min_ic_ir: 0.10
+  max_drawdown: 0.20
+  
+  actions:
+    ic连续5天<0: observe
+    ic连续10天<0: downweight_50pct
+    ic连续15天<0: offline
