@@ -115,8 +115,8 @@ def _compute_cost_sensitivity(
     
     for mult in cost_multipliers:
         adjusted_cost_ratio = cost_ratio * mult
-        adjusted_return = initial_nav * (1 - adjusted_cost_ratio) / initial_nav - 1
-        adjusted_return = (1 - adjusted_cost_ratio) - 1
+        # Adjusted return = strategy_return - cost_ratio
+        adjusted_return = strategy_return - adjusted_cost_ratio
         
         results.append({
             'cost_multiplier': mult,
@@ -137,7 +137,20 @@ def _compute_baseline_comparison(
         return {}
     
     strategy_ret = strategy_nav['nav'].iloc[-1] / strategy_nav['nav'].iloc[0] - 1
-    benchmark_ret = benchmark_nav['nav'].iloc[-1] / benchmark_nav['nav'].iloc[0] - 1
+    
+    # Handle different column names: 'nav' or 'benchmark_nav'
+    if 'nav' in benchmark_nav.columns:
+        benchmark_col = 'nav'
+    elif 'benchmark_nav' in benchmark_nav.columns:
+        benchmark_col = 'benchmark_nav'
+    else:
+        return {
+            'strategy_return': float(strategy_ret),
+            'benchmark_return': 0.0,
+            'excess_return': float(strategy_ret),
+        }
+    
+    benchmark_ret = benchmark_nav[benchmark_col].iloc[-1] / benchmark_nav[benchmark_col].iloc[0] - 1
     
     return {
         'strategy_return': float(strategy_ret),

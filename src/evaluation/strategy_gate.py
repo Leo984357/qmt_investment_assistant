@@ -207,7 +207,7 @@ class StrategyGate:
         checks.append(dd_check)
         
         # Gate 6: 平均换手率
-        avg_turnover, turnover_check = self._check_avg_turnover(trades)
+        avg_turnover, turnover_check = self._check_avg_turnover(trades, nav)
         checks.append(turnover_check)
         
         # Gate 7: 分年度稳定性
@@ -223,9 +223,14 @@ class StrategyGate:
         total_count = len(checks)
         overall_score = (passed_count / total_count) * 100 if total_count > 0 else 0
         
-        # 判断是否通过
+        # 判断是否通过: 关键门控不能SKIPPED
+        critical_gates = {'IC均值', 'IC IR', '成本后超额收益', '最大回撤'}
         failed_count = sum(1 for c in checks if c.status == GateStatus.FAILED)
-        passed = failed_count == 0
+        skipped_critical = sum(
+            1 for c in checks 
+            if c.status == GateStatus.SKIPPED and c.name in critical_gates
+        )
+        passed = failed_count == 0 and skipped_critical == 0
         
         # 生成建议
         if ic_mean < self.thresholds.ic_mean_min * 0.5:
@@ -419,7 +424,7 @@ class StrategyGate:
             message=f"最大回撤 {'≤' if passed else '>'} {self.thresholds.max_drawdown_max:.2%}",
         )
     
-    def _check_avg_turnover(self, trades: Optional[pd.DataFrame]) -> tuple[float, GateCheck]:
+    def _check_avg_turnover(self, trades: Optional[pd.DataFrame], nav: Optional[pd.DataFrame] = None) -> tuple[float, GateCheck]:
         """Gate 6: 平均换手率 < 阈值"""
         if trades is None or trades.empty:
             return 0.0, GateCheck(
@@ -433,8 +438,13 @@ class StrategyGate:
         # 估算换手率 (使用backtest实际字段: turnover 是百分比, notional需归一化)
         if 'turnover' in trades.columns and 'trade_date' in trades.columns:
             avg_turnover = trades.groupby('trade_date')['turnover'].mean().mean()
-        elif 'notional' in trades.columns and 'trade_date' in trades.columns and not nav.empty:
-            equity = nav['equity'].iloc[-1] if 'equity' in nav.columns else nav['nav'].iloc[-1] * 1e6
+        elif 'notional' in trades.columns and 'trade_date' in trades.columns:
+            if nav is not None and not nav.empty and 'equity' in nav.columns:
+                equity = nav['equity'].iloc[-1] if len(nav) > 0 else 1e6
+            elif nav is not None and not nav.empty and 'nav' in nav.columns:
+                equity = nav['nav'].iloc[-1] if len(nav) > 0 else 1.0
+            else:
+                equity = 1e6
             avg_notional = trades.groupby('trade_date')['notional'].sum().mean()
             avg_turnover = avg_notional / max(equity, 1e-9)
         else:

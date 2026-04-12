@@ -285,8 +285,18 @@ def _compute_metrics(
     # 超额收益
     if benchmark_nav is not None and not benchmark_nav.empty:
         strategy_ret = total_return
-        benchmark_ret = benchmark_nav['nav'].iloc[-1] / benchmark_nav['nav'].iloc[0] - 1
-        excess_return = strategy_ret - benchmark_ret
+        # Handle different column names: 'nav' or 'benchmark_nav'
+        if 'nav' in benchmark_nav.columns:
+            benchmark_col = 'nav'
+        elif 'benchmark_nav' in benchmark_nav.columns:
+            benchmark_col = 'benchmark_nav'
+        else:
+            benchmark_ret = 0.0
+            excess_return = 0.0
+            benchmark_nav = None
+        if benchmark_nav is not None:
+            benchmark_ret = benchmark_nav[benchmark_col].iloc[-1] / benchmark_nav[benchmark_col].iloc[0] - 1
+            excess_return = strategy_ret - benchmark_ret
     else:
         excess_return = 0.0
     

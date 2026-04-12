@@ -434,6 +434,19 @@ def run_experiment(config_path: str | Path) -> dict:
     
     gate = default_gate()
     
+    # 计算基准Sharpe
+    baseline_sharpe = 0.0
+    if not active_benchmark.empty:
+        bm = active_benchmark.copy()
+        bm['trade_date'] = pd.to_datetime(bm['trade_date'])
+        bm = bm.sort_values('trade_date')
+        bm_col = 'benchmark_nav' if 'benchmark_nav' in bm.columns else 'nav'
+        if bm_col in bm.columns:
+            bm_nav = bm.set_index('trade_date')[bm_col]
+            bm_returns = bm_nav.pct_change().dropna()
+            if len(bm_returns) > 0 and bm_returns.std() > 0:
+                baseline_sharpe = (bm_returns.mean() * 252) / (bm_returns.std() * (252 ** 0.5))
+    
     # 计算年度分解
     yearly_breakdown = None
     if not active_nav.empty:
@@ -468,6 +481,7 @@ def run_experiment(config_path: str | Path) -> dict:
         trades=active_trades,
         benchmark_nav=active_benchmark,
         yearly_breakdown=yearly_breakdown,
+        baseline_sharpe=baseline_sharpe,
     )
     
     gate_markdown = gate_result.to_markdown()
