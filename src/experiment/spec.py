@@ -273,6 +273,16 @@ def load_experiment_spec(path: str | Path, validate_contract: bool = True) -> Ex
     raw = yaml.safe_load(experiment_path.read_text(encoding='utf-8')) or {}
     resolved = _deep_merge(defaults, raw)
     
+    # Patch resolved with ModelSpec defaults before validation
+    # This ensures validation sees defaults, not raw None/missing values
+    model_defaults = {
+        'test_window_days': 60,
+        'training_embargo_days': 0,
+    }
+    for key, default_val in model_defaults.items():
+        if resolved.get('model', {}).get(key) is None:
+            resolved.setdefault('model', {})[key] = default_val
+    
     # Validate against research contract
     if validate_contract:
         contract = _load_research_contract()

@@ -183,22 +183,30 @@ def run_experiment(config_path: str | Path) -> dict:
     logger.info("Phase 6: Portfolio Enhancement (Buffer + Smooth + CostFilter)")
     logger.info("=" * 60)
     enhancer_start = perf_counter()
-    enhancer = PortfolioEnhancer(
-        buffer_config=BufferConfig(
-            retain_threshold_rank=spec.enhancer.buffer_retain_threshold_rank,
-            max_retain_ratio=spec.enhancer.buffer_max_retain_ratio,
-        ),
-        smoother_config=SmootherConfig(
-            step_ratio=spec.enhancer.smoother_step_ratio,
-            min_change_threshold=spec.enhancer.smoother_min_change_threshold,
-        ),
-        cost_config=CostFilterConfig(
-            min_alpha_threshold=spec.enhancer.cost_min_alpha_threshold,
-            cost_to_alpha_ratio=spec.enhancer.cost_cost_to_alpha_ratio,
-        ),
-    )
     
-    logger.info("Enhancer config: Buffer(retain_rank=50,max=60%), Smooth(step=50%), CostFilter(alpha=0.2%)")
+    if spec.enhancer.enabled:
+        enhancer = PortfolioEnhancer(
+            buffer_config=BufferConfig(
+                retain_threshold_rank=spec.enhancer.buffer_retain_threshold_rank,
+                max_retain_ratio=spec.enhancer.buffer_max_retain_ratio,
+            ),
+            smoother_config=SmootherConfig(
+                step_ratio=spec.enhancer.smoother_step_ratio,
+                min_change_threshold=spec.enhancer.smoother_min_change_threshold,
+            ),
+            cost_config=CostFilterConfig(
+                min_alpha_threshold=spec.enhancer.cost_min_alpha_threshold,
+                cost_to_alpha_ratio=spec.enhancer.cost_cost_to_alpha_ratio,
+            ),
+        )
+        logger.info("Enhancer enabled: Buffer(retain_rank=%d,max=%.0f%%), Smooth(step=%.0f%%), CostFilter(alpha=%.3f)",
+                    spec.enhancer.buffer_retain_threshold_rank, 
+                    spec.enhancer.buffer_max_retain_ratio * 100,
+                    spec.enhancer.smoother_step_ratio * 100,
+                    spec.enhancer.cost_min_alpha_threshold)
+    else:
+        enhancer = None
+        logger.info("Enhancer disabled by config")
     
     # 准备价格数据
     close_matrix = daily_bar.pivot(index='trade_date', columns='symbol', values='close').sort_index()
@@ -214,6 +222,7 @@ def run_experiment(config_path: str | Path) -> dict:
         'buffered_retained': 0,
         'buffered_removed': 0,
         'filtered_trades': 0,
+        'enhancer_disabled': not spec.enhancer.enabled,
     }
     
     for exec_date in tw_dates:
@@ -244,27 +253,29 @@ def run_experiment(config_path: str | Path) -> dict:
             total_equity += equity_change
             total_equity = max(total_equity, spec.backtest.initial_cash * 0.5)  # 防止为负
         
-        # 应用增强器
-        enhanced_tw, summary = enhancer.enhance(
-            candidates=day_candidates,
-            current_positions=current_positions,
-            target_weights=day_tw,
-            prices=prices,
-            execution_date=exec_date_ts,
-            total_equity=total_equity,
-            lot_size=spec.backtest.lot_size,
-            commission_bps=spec.backtest.commission_bps,
-            stamp_duty_bps=spec.backtest.stamp_duty_bps,
-            slippage_bps=spec.backtest.slippage_bps,
-            min_trade_value=spec.portfolio.min_trade_value,
-        )
+        # 应用增强器或跳过
+        if enhancer is not None:
+            enhanced_tw, summary = enhancer.enhance(
+                candidates=day_candidates,
+                current_positions=current_positions,
+                target_weights=day_tw,
+                prices=prices,
+                execution_date=exec_date_ts,
+                total_equity=total_equity,
+                lot_size=spec.backtest.lot_size,
+                commission_bps=spec.backtest.commission_bps,
+                stamp_duty_bps=spec.backtest.stamp_duty_bps,
+                slippage_bps=spec.backtest.slippage_bps,
+                min_trade_value=spec.portfolio.min_trade_value,
+            )
+            enhancement_summary['buffered_retained'] += summary.get('buffered_retained', 0)
+            enhancement_summary['buffered_removed'] += summary.get('buffered_removed', 0)
+            enhancement_summary['filtered_trades'] += summary.get('filtered_trades', 0)
+        else:
+            enhanced_tw = day_tw.copy()
         
         # 更新 prev_prices
         prev_prices = prices.copy()
-        
-        enhancement_summary['buffered_retained'] += summary.get('buffered_retained', 0)
-        enhancement_summary['buffered_removed'] += summary.get('buffered_removed', 0)
-        enhancement_summary['filtered_trades'] += summary.get('filtered_trades', 0)
         
         enhanced_weights_list.append(enhanced_tw)
         
