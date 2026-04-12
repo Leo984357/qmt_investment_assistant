@@ -153,3 +153,37 @@ def test_gate_quantile_summary_skipped_when_none():
     
     # Overall should fail due to SKIPPED
     assert result.passed is False
+
+
+def test_gate_ic_ir_epsilon_protection():
+    """Test that IC IR has epsilon protection for near-zero std.
+    
+    Constant IC sequence [0.05] * 100 has near-zero std due to floating point,
+    which should NOT produce infinity IR.
+    """
+    # Constant IC - will have std ~ 0 due to floating point
+    rank_ic = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=100),
+        'rank_ic': [0.05] * 100,  # Constant IC
+    })
+    
+    nav = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=200),
+        'nav': np.linspace(1.0, 1.30, 200),
+    })
+    
+    gate = StrategyGate()
+    result = gate.evaluate(
+        strategy_name='test_constant_ic',
+        nav=nav,
+        rank_ic=rank_ic,
+    )
+    
+    # Find IC IR check
+    ic_ir_check = next((c for c in result.gate_checks if c.name == 'IC IR'), None)
+    assert ic_ir_check is not None, "IC IR check should exist"
+    
+    # IC IR should be finite, not infinity
+    assert np.isfinite(ic_ir_check.value), f"IC IR should be finite, got {ic_ir_check.value}"
+    # IC IR should be reasonable (not 5e14)
+    assert ic_ir_check.value < 1e6, f"IC IR should be capped, got {ic_ir_check.value}"

@@ -301,14 +301,24 @@ def _compute_metrics(
         total_cost = 0.0
         num_trades = 0
     
-    # 估算平均换手率 - 支持多种字段名
-    if not trades.empty:
+    # 估算平均换手率 - 优先使用nav中的turnover字段
+    if not nav.empty and 'turnover' in nav.columns:
+        avg_turnover = nav['turnover'].mean()
+    elif not trades.empty:
+        # 获取初始资金用于计算换手率
+        initial_nav = nav['nav'].iloc[0] if 'nav' in nav.columns else 1.0
+        if 'equity' in nav.columns:
+            initial_equity = nav['equity'].iloc[0]
+        else:
+            initial_equity = initial_nav * 1e6
         # execution_date 或 trade_date
         date_col = 'execution_date' if 'execution_date' in trades.columns else 'trade_date'
-        # trade_value 或 notional
+        # trade_value 或 notional，需要除以equity/资金规模转为换手率
         value_col = 'trade_value' if 'trade_value' in trades.columns else 'notional'
         if date_col in trades.columns and value_col in trades.columns:
-            avg_turnover = trades.groupby(date_col)[value_col].sum().mean()
+            daily_turnover_raw = trades.groupby(date_col)[value_col].sum().mean()
+            # 除以初始资金转为换手率百分比
+            avg_turnover = daily_turnover_raw / max(initial_equity, 1e-9)
         else:
             avg_turnover = 0.0
     else:

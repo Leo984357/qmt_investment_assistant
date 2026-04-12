@@ -292,7 +292,7 @@ class StrategyGate:
         
         ic_mean = rank_ic['rank_ic'].mean()
         ic_std = rank_ic['rank_ic'].std()
-        ic_ir = ic_mean / ic_std if ic_std > 0 else 0.0
+        ic_ir = ic_mean / ic_std if ic_std > 1e-8 else 0.0
         passed = ic_ir >= self.thresholds.ic_ir_min
         
         return ic_ir, GateCheck(

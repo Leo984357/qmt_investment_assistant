@@ -107,6 +107,59 @@ def test_artifact_yaml_serialization():
     })
     metrics_old = _compute_metrics(nav_df, trades_old, rank_ic_df, None)
     assert metrics_old.total_cost == 250.0, f"Expected total_cost=250.0, got {metrics_old.total_cost}"
+
+
+def test_artifact_turnover_from_nav():
+    """Test that avg_turnover uses nav['turnover'] when available."""
+    nav_df = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=100),
+        'nav': np.linspace(1.0, 1.25, 100),
+        'turnover': [0.05] * 100,  # 5% daily turnover
+    })
+    trades_df = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=10),
+        'symbol': ['000001.SZ'] * 10,
+        'notional': [100000.0] * 10,
+        'fee': [75.0] * 10,
+    })
+    rank_ic_df = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=50),
+        'rank_ic': np.random.randn(50) * 0.05,
+    })
+    
+    from src.experiment.artifact import _compute_metrics
+    metrics = _compute_metrics(nav_df, trades_df, rank_ic_df, None)
+    
+    # Should use nav['turnover'].mean() = 0.05, not notional-based calculation
+    assert abs(metrics.avg_turnover - 0.05) < 1e-6, f"Expected avg_turnover=0.05, got {metrics.avg_turnover}"
+
+
+def test_artifact_turnover_from_notional_divided_by_equity():
+    """Test that avg_turnover divides notional by equity when fallback."""
+    nav_df = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=100),
+        'nav': np.linspace(1.0, 1.25, 100),
+        'equity': np.linspace(1e6, 1.25e6, 100),  # 初始资金100万
+    })
+    # Daily notional = 50000, equity = 1e6, expected turnover = 5%
+    trades_df = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=10),
+        'symbol': ['000001.SZ'] * 10,
+        'notional': [50000.0] * 10,  # 5万/天
+        'fee': [75.0] * 10,
+    })
+    rank_ic_df = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=50),
+        'rank_ic': np.random.randn(50) * 0.05,
+    })
+    
+    from src.experiment.artifact import _compute_metrics
+    metrics = _compute_metrics(nav_df, trades_df, rank_ic_df, None)
+    
+    # Should be notional/equity = 50000/1e6 = 0.05 = 5%
+    expected_turnover = 50000.0 / 1e6
+    assert abs(metrics.avg_turnover - expected_turnover) < 1e-6, \
+        f"Expected avg_turnover={expected_turnover}, got {metrics.avg_turnover}"
     
     artifact = ExperimentArtifact(
         run_id='test1234',
