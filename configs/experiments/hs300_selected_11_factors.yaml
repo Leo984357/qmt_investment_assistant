@@ -26,7 +26,6 @@ features:
     # 可考虑
     - mom120
     - rev20
-    - high_low_pos20
     - close_to_high20
     - close_to_high60
     - vol_growth5
@@ -49,6 +48,7 @@ model:
   train_window_days: 500
   valid_window_days: 0
   min_train_samples: 800
+  test_window_days: 60
   training_embargo_days: 5
   params:
     n_estimators: 200
@@ -101,3 +101,11 @@ evaluation:
   version: v1
   params:
     quantiles: 5
+enhancer:
+  enabled: true
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.002
+  cost_cost_to_alpha_ratio: 0.3

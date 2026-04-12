@@ -364,7 +364,21 @@ class StrategyGate:
         strategy_return = nav['nav'].iloc[-1] / nav['nav'].iloc[0] - 1
         
         if benchmark_nav is not None and not benchmark_nav.empty:
-            benchmark_return = benchmark_nav['nav'].iloc[-1] / benchmark_nav['nav'].iloc[0] - 1
+            # 处理不同的列名: nav 或 benchmark_nav
+            if 'nav' in benchmark_nav.columns:
+                benchmark_col = 'nav'
+            elif 'benchmark_nav' in benchmark_nav.columns:
+                benchmark_col = 'benchmark_nav'
+            else:
+                return strategy_return, GateCheck(
+                    name="成本后超额收益",
+                    status=GateStatus.SKIPPED,
+                    value=0.0,
+                    threshold=self.thresholds.excess_return_min,
+                    message="基准净值无有效列，跳过检查",
+                )
+            
+            benchmark_return = benchmark_nav[benchmark_col].iloc[-1] / benchmark_nav[benchmark_col].iloc[0] - 1
             excess_return = strategy_return - benchmark_return
         else:
             excess_return = strategy_return
@@ -416,9 +430,9 @@ class StrategyGate:
                 message="无交易数据，跳过检查",
             )
         
-        # 估算换手率
-        if 'trade_value' in trades.columns and 'execution_date' in trades.columns:
-            turnover_by_date = trades.groupby('execution_date')['trade_value'].sum()
+        # 估算换手率 (使用backtest实际字段: notional, trade_date)
+        if 'notional' in trades.columns and 'trade_date' in trades.columns:
+            turnover_by_date = trades.groupby('trade_date')['notional'].sum()
             avg_turnover = turnover_by_date.mean()
         else:
             avg_turnover = 0.0

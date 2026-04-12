@@ -264,15 +264,22 @@ def _validate_against_contract(spec_dict: dict, contract: dict) -> list[str]:
 
 
 # Rejected factors list - hard block for production experiments
+# Based on factor health check results (2026-04)
 REJECTED_FACTORS = {
-    'vol20', 'vol60', 'vol120',  # 波动率溢价在A股不成立
-    'mom20', 'mom60',  # 短期动量在A股反转效应更强
-    'rev5', 'rev10', 'rev20',  # 短期反转因子
-    'liq20', 'liq60',  # 流动性因子覆盖率问题
-    'high_low_pos20', 'high_low_pos60',  # IC显著为负
+    # 波动率因子 - A股波动率溢价不成立
+    'vol20', 'vol60', 'vol120',
+    # 短期动量 - A股反转效应更强
+    'mom20', 'mom60',
+    # 短期反转
+    'rev5', 'rev10',
+    # 流动性因子 - 覆盖率问题
+    'liq20', 'liq60',
+    # 价格位置因子 - IC显著为负
+    'high_low_pos20', 'high_low_pos60',
+    # WorldQuant Alpha - 显著负向
     'alpha_004',  # 简化版IC=0.144是错误的，原版IC=-0.001
-    'alpha_018', 'alpha_031', 'alpha_032', 'alpha_039',  # 显著负向
-    'alpha_087', 'alpha_088',  # 强负向
+    'alpha_018', 'alpha_031', 'alpha_032', 'alpha_039',
+    'alpha_087', 'alpha_088',
 }
 
 

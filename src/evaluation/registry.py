@@ -18,6 +18,8 @@ class EvaluationContext:
     rank_ic: pd.DataFrame
     nav: pd.DataFrame
     trades: pd.DataFrame
+    benchmark_nav: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
+    daily_bar: pd.DataFrame = field(default_factory=lambda: pd.DataFrame())
 
 
 @dataclass

@@ -94,10 +94,11 @@ def _compute_cost_sensitivity(
     cost_multipliers: list[float] = [0.5, 1.0, 1.5, 2.0, 3.0]
 ) -> pd.DataFrame:
     """Compute performance under different cost assumptions."""
-    if nav.empty or trades.empty or 'cost' not in trades.columns:
+    if nav.empty or trades.empty:
         return pd.DataFrame()
     
-    base_cost = trades['cost'].sum()
+    # 使用backtest实际字段: fee
+    base_cost = trades['fee'].sum() if 'fee' in trades.columns else 0.0
     results = []
     
     for mult in cost_multipliers:

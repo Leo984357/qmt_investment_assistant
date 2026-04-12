@@ -20,7 +20,7 @@
 from __future__ import annotations
 import pandas as pd
 import numpy as np
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Optional
 import json
 

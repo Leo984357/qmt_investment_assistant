@@ -17,6 +17,8 @@ from src.data_store.schemas import SCHEMAS
 from src.evaluation.registry import EvaluationContext
 from src.evaluation.reporting import compute_benchmark_nav, compute_drawdown, compute_monthly_returns, compute_rank_ic, latest_signal_report, performance_summary, trim_backtest_window, write_markdown_report
 from src.evaluation.suites import default_evaluation_registry
+from src.evaluation.strategy_gate import default_gate, StrategyGate
+from src.experiment.artifact import create_artifact_from_experiment, save_artifact
 from src.features.simple_definitions import simple_factor_registry as default_feature_registry
 from src.labels.definitions import default_label_registry
 from src.models.definitions import default_model_registry
@@ -367,6 +369,8 @@ def run_experiment(config_path: str | Path) -> dict:
             rank_ic=active_rank_ic,
             nav=active_nav,
             trades=active_trades,
+            benchmark_nav=active_benchmark,
+            daily_bar=daily_bar,
         ),
         params=spec.evaluation.params,
     )
@@ -422,6 +426,87 @@ def run_experiment(config_path: str | Path) -> dict:
     latest_signal.to_parquet(run_dir / 'signals' / 'latest_signal.parquet', index=False)
     for table_name, table in evaluation_result.tables.items():
         table.to_parquet(run_dir / 'evaluation' / f'{table_name}.parquet', index=False)
+    
+    # ========== Phase 9: Strategy Gate Evaluation ==========
+    logger.info("=" * 60)
+    logger.info("Phase 9: Strategy Gate Evaluation")
+    logger.info("=" * 60)
+    
+    gate = default_gate()
+    
+    # 计算年度分解
+    yearly_breakdown = None
+    if not active_nav.empty:
+        active_nav_copy = active_nav.copy()
+        active_nav_copy['trade_date'] = pd.to_datetime(active_nav_copy['trade_date'])
+        active_nav_copy['year'] = active_nav_copy['trade_date'].dt.year
+        yearly_rows = []
+        for year, group in active_nav_copy.groupby('year'):
+            if len(group) < 20:
+                continue
+            group_sorted = group.sort_values('trade_date')
+            nav_series = group_sorted.set_index('trade_date')['nav']
+            total_ret = nav_series.iloc[-1] / nav_series.iloc[0] - 1
+            daily_returns = nav_series.pct_change().dropna()
+            if len(daily_returns) > 0:
+                sharpe = (daily_returns.mean() * 252) / (daily_returns.std() * (252 ** 0.5))
+            else:
+                sharpe = 0.0
+            yearly_rows.append({
+                'year': int(year),
+                'total_return': float(total_ret),
+                'sharpe': float(sharpe),
+            })
+        if yearly_rows:
+            yearly_breakdown = pd.DataFrame(yearly_rows)
+    
+    gate_result = gate.evaluate(
+        strategy_name=spec.name,
+        nav=active_nav,
+        rank_ic=active_rank_ic,
+        quantile_summary=evaluation_result.tables.get('quantile_summary'),
+        trades=active_trades,
+        benchmark_nav=active_benchmark,
+        yearly_breakdown=yearly_breakdown,
+    )
+    
+    gate_markdown = gate_result.to_markdown()
+    (run_dir / 'reports' / 'strategy_gate.md').write_text(gate_markdown, encoding='utf-8')
+    logger.info("Strategy Gate: %s (Score: %.1f/100)", 
+                "PASSED" if gate_result.passed else "FAILED",
+                gate_result.overall_score)
+    
+    # ========== Phase 10: Save Experiment Artifact ==========
+    logger.info("=" * 60)
+    logger.info("Phase 10: Save Experiment Artifact")
+    logger.info("=" * 60)
+    
+    try:
+        artifact = create_artifact_from_experiment(
+            experiment_name=spec.name,
+            spec=spec,
+            nav=active_nav,
+            trades=active_trades,
+            rank_ic=active_rank_ic,
+            benchmark_nav=active_benchmark,
+            gate_result=gate_result,
+            notes=f"Gate passed: {gate_result.passed}, Score: {gate_result.overall_score:.1f}",
+        )
+        artifact_path = save_artifact(artifact, run_dir / 'metadata')
+        logger.info("Saved experiment artifact: %s", artifact_path)
+        
+        artifact_summary = {
+            'run_id': artifact.run_id,
+            'experiment_name': artifact.experiment_name,
+            'config_hash': artifact.config_hash[:16],
+            'gate_passed': artifact.gate_passed,
+            'gate_score': artifact.gate_score,
+        }
+        (run_dir / 'metadata' / 'experiment_artifact.json').write_text(
+            json.dumps(artifact_summary, ensure_ascii=False, indent=2), encoding='utf-8'
+        )
+    except Exception as e:
+        logger.warning("Failed to save experiment artifact: %s", e)
 
     dataset_summary = {
         'dataset_rows': int(len(model_dataset)),
