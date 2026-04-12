@@ -14,10 +14,10 @@ features:
   set_name: smoke_factor_set
   version: v1
   names:
-    - mom20
-    - mom60
+    - mom250
     - mom120
-    - rev5
+    - close_to_high250
+    - earnings_yield
     - amihud_illiq_20d
   winsorize_limits: [0.02, 0.98]
   zscore: true

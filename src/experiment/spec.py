@@ -263,7 +263,49 @@ def _validate_against_contract(spec_dict: dict, contract: dict) -> list[str]:
     return violations
 
 
-def load_experiment_spec(path: str | Path, validate_contract: bool = True) -> ExperimentSpec:
+# Rejected factors list - hard block for production experiments
+REJECTED_FACTORS = {
+    'vol20', 'vol60', 'vol120',  # 波动率溢价在A股不成立
+    'mom20', 'mom60',  # 短期动量在A股反转效应更强
+    'rev5', 'rev10', 'rev20',  # 短期反转因子
+    'liq20', 'liq60',  # 流动性因子覆盖率问题
+    'high_low_pos20', 'high_low_pos60',  # IC显著为负
+    'alpha_004',  # 简化版IC=0.144是错误的，原版IC=-0.001
+    'alpha_018', 'alpha_031', 'alpha_032', 'alpha_039',  # 显著负向
+    'alpha_087', 'alpha_088',  # 强负向
+}
+
+
+def _validate_factors(spec_dict: dict, allow_rejected: bool = False) -> list[str]:
+    """
+    Validate factor names against rejected list.
+    
+    Args:
+        spec_dict: Experiment config dict
+        allow_rejected: If True, allow rejected factors (for diagnostic experiments)
+    
+    Returns:
+        List of violations (empty = valid)
+    """
+    violations = []
+    features = spec_dict.get('features', {}).get('names', [])
+    
+    rejected_found = [f for f in features if f in REJECTED_FACTORS]
+    
+    if rejected_found and not allow_rejected:
+        violations.append(
+            f"Rejected factors found: {rejected_found}. "
+            f"Set allow_rejected_factors: true in experiment config to bypass (diagnostic only)."
+        )
+    
+    return violations
+
+
+def load_experiment_spec(
+    path: str | Path,
+    validate_contract: bool = True,
+    allow_rejected_factors: bool = False,
+) -> ExperimentSpec:
     experiment_path = Path(path)
     defaults = {}
     for default_name in ('data.yaml', 'backtest.yaml'):
@@ -291,6 +333,16 @@ def load_experiment_spec(path: str | Path, validate_contract: bool = True) -> Ex
             raise ValueError(
                 f"Experiment '{resolved.get('name', path)}' violates research contract:\n" +
                 "\n".join(f"  - {v}" for v in violations)
+            )
+    
+    # Validate factor names against rejected list
+    if not allow_rejected_factors:
+        allow_from_config = resolved.get('allow_rejected_factors', False)
+        factor_violations = _validate_factors(resolved, allow_rejected=allow_from_config)
+        if factor_violations:
+            raise ValueError(
+                f"Experiment '{resolved.get('name', path)}' has invalid factors:\n" +
+                "\n".join(f"  - {v}" for v in factor_violations)
             )
     
     model_section = dict(resolved['model'])
