@@ -366,7 +366,8 @@ class CostAlphaFilter:
             total_cost = commission + slippage + stamp_duty
             
             # 估算边际收益 (基于bucket校准)
-            score = row.get('score', 0)
+            # 优先使用score_percentile，否则使用score
+            score = row.get('score_percentile', row.get('score', 0))
             bucket = self._get_bucket_from_score(score, n_buckets=5)
             bucket_return = self._bucket_returns.get(bucket, 0.005)
             
@@ -402,15 +403,35 @@ class CostAlphaFilter:
         return result
     
     def _get_bucket_from_score(self, score: float, n_buckets: int = 5) -> int:
-        """根据分数确定bucket"""
-        # 简化：假设score是percentile [0, 1]
-        if score >= 0.8:
+        """根据分数确定bucket
+        
+        直接使用[0,1]范围的percentile值，按等分位划分
+        """
+        # 假设score已经是[0,1]的percentile
+        if 0 <= score <= 1:
+            if score >= 0.8:
+                return 5
+            elif score >= 0.6:
+                return 4
+            elif score >= 0.4:
+                return 3
+            elif score >= 0.2:
+                return 2
+            else:
+                return 1
+        
+        # 如果不是percentile，尝试使用rank百分比
+        # 这里用线性插值简化处理
+        percentile = (score + 1) / 2  # 假设score在[-1, 1]范围
+        percentile = max(0, min(1, percentile))
+        
+        if percentile >= 0.8:
             return 5
-        elif score >= 0.6:
+        elif percentile >= 0.6:
             return 4
-        elif score >= 0.4:
+        elif percentile >= 0.4:
             return 3
-        elif score >= 0.2:
+        elif percentile >= 0.2:
             return 2
         else:
             return 1

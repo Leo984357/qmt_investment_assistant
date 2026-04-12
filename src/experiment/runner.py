@@ -232,9 +232,18 @@ def run_experiment(config_path: str | Path) -> dict:
         day_tw = portfolio_result.target_weights[portfolio_result.target_weights['execution_date'] == exec_date].copy()
         day_candidates = portfolio_result.filtered_candidates[portfolio_result.filtered_candidates['execution_date'] == exec_date_ts].copy()
         
-        # 添加 rank 列 (基于 score)
+        # 添加 rank 和 percentile 列 (基于 score)
         if 'rank' not in day_candidates.columns and 'score' in day_candidates.columns:
             day_candidates['rank'] = day_candidates['score'].rank(ascending=False, method='min')
+            day_candidates['score_percentile'] = day_candidates['score'].rank(pct=True)
+        
+        # 把score_percentile合并到day_tw
+        if 'score_percentile' in day_candidates.columns and 'score_percentile' not in day_tw.columns:
+            day_tw = day_tw.merge(
+                day_candidates[['symbol', 'execution_date', 'score_percentile']],
+                on=['symbol', 'execution_date'],
+                how='left'
+            )
         
         # 获取当日价格
         if exec_date_ts in close_matrix.index:
