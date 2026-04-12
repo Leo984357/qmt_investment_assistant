@@ -185,16 +185,16 @@ def run_experiment(config_path: str | Path) -> dict:
     enhancer_start = perf_counter()
     enhancer = PortfolioEnhancer(
         buffer_config=BufferConfig(
-            retain_threshold_rank=50,
-            max_retain_ratio=0.6,
+            retain_threshold_rank=spec.enhancer.buffer_retain_threshold_rank,
+            max_retain_ratio=spec.enhancer.buffer_max_retain_ratio,
         ),
         smoother_config=SmootherConfig(
-            step_ratio=0.5,
-            min_change_threshold=0.001,
+            step_ratio=spec.enhancer.smoother_step_ratio,
+            min_change_threshold=spec.enhancer.smoother_min_change_threshold,
         ),
         cost_config=CostFilterConfig(
-            min_alpha_threshold=0.002,
-            cost_to_alpha_ratio=0.3,
+            min_alpha_threshold=spec.enhancer.cost_min_alpha_threshold,
+            cost_to_alpha_ratio=spec.enhancer.cost_cost_to_alpha_ratio,
         ),
     )
     

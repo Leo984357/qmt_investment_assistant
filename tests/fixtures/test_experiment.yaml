@@ -30,9 +30,11 @@ model:
   version: smoke
   registry_stage: research
   fallback_model: linear_factor_blend
-  train_window_days: 80
-  valid_window_days: 20
-  min_train_samples: 600
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  fallback_feature: earnings_yield
+  test_window_days: 60
   params:
     n_estimators: 60
     learning_rate: 0.05
@@ -55,8 +57,8 @@ portfolio:
 backtest:
   initial_cash: 500000
   lot_size: 100
-  commission_bps: 3
+  commission_bps: 0.75
   stamp_duty_bps: 10
-  slippage_bps: 8
+  slippage_bps: 5
   rebalance_frequency_days: 10
   trade_delay_days: 1

@@ -2,7 +2,11 @@ name: hs300_final_strategy
 description: >
   最终推荐策略
   核心池：mom250 + close_to_high250 + high_low_pos120
-  简单等权组合，20日调仓
+  简单等权组合，10日调仓
+
+  ⚠️ 旧策略配置，仅作历史参考，不建议使用
+  原因：high_low_pos120 IC为负，接近淘汰阈值
+
 data:
   source: baostock_ashare
   snapshot_id: hs300_baostock_snapshot_v1
@@ -19,7 +23,6 @@ features:
   names:
     - mom250
     - close_to_high250
-    - high_low_pos120
   winsorize_limits: [0.01, 0.99]
   zscore: true
   fill_missing: true
@@ -29,9 +32,14 @@ label:
 model:
   family: simple_average
   version: v1
-  description: 简单等权组合，不使用ML
+  registry_stage: production
+  fallback_model: earnings_yield_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  fallback_feature: earnings_yield
 signal:
-  name: simple_average_score
+  name: cross_sectional_score
   version: v1
   params: {}
 portfolio:

@@ -236,18 +236,16 @@ class CrossSectionalLightGBMModel:
 
     @staticmethod
     def _linear_fallback_score(df: pd.DataFrame, feature_names: list[str]) -> pd.Series:
-        weights = {
-            'mom20': 0.2,
-            'mom60': 0.2,
+        validated_weights = {
+            'mom250': 0.3,
             'mom120': 0.2,
-            'rev5': 0.1,
-            'vol20': 0.1,
-            'vol60': 0.1,
-            'liq20': 0.1,
+            'roe': 0.2,
+            'earnings_yield': 0.2,
+            'operating_margin': 0.1,
         }
         score = pd.Series(0.0, index=df.index, dtype=float)
         for feature_name in feature_names:
-            score = score + df[feature_name].fillna(0.0) * weights.get(feature_name, 0.0)
+            score = score + df[feature_name].fillna(0.0) * validated_weights.get(feature_name, 0.0)
         return score
 
     def _post_process_scores(self, df: pd.DataFrame, raw_scores: pd.Series) -> pd.Series:
