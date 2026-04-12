@@ -1,5 +1,5 @@
 """
-实验结果工件 (Experiment Artifact)
+Experiment Artifact System
 
 记录实验的可复现信息，包括:
 - run_id: 唯一运行标识
@@ -22,6 +22,7 @@
     save_artifact(artifact, output_dir)
 """
 from __future__ import annotations
+
 import hashlib
 import json
 import uuid
@@ -30,8 +31,28 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+import numpy as np
 import pandas as pd
 import yaml
+
+
+def _to_native(obj):
+    """Convert numpy/pandas types to Python native types for JSON/YAML serialization."""
+    if isinstance(obj, dict):
+        return {k: _to_native(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_to_native(x) for x in obj]
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, pd.Timestamp):
+        return obj.isoformat()
+    if pd.isna(obj):
+        return None
+    return obj
 
 
 @dataclass
@@ -331,10 +352,10 @@ def save_artifact(artifact: ExperimentArtifact, output_dir: Path) -> Path:
     with open(md_path, 'w', encoding='utf-8') as f:
         f.write(artifact.to_markdown())
     
-    # 保存YAML
+    # 保存YAML (需要转换 numpy/pandas 类型为原生类型)
     yaml_path = output_dir / f"{artifact.run_id}.yaml"
     with open(yaml_path, 'w', encoding='utf-8') as f:
-        yaml.safe_dump(artifact.to_dict(), f, allow_unicode=True, sort_keys=False)
+        yaml.safe_dump(_to_native(artifact.to_dict()), f, allow_unicode=True, sort_keys=False)
     
     return json_path
 

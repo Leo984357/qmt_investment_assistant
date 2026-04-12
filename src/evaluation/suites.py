@@ -111,6 +111,9 @@ def _compute_cost_sensitivity(
     base_cost = trades['fee'].sum() if 'fee' in trades.columns else 0.0
     cost_ratio = base_cost / max(initial_equity, 1e-9)
     
+    # 计算策略收益率
+    strategy_return = nav['nav'].iloc[-1] / nav['nav'].iloc[0] - 1
+    
     results = []
     
     for mult in cost_multipliers:
