@@ -223,14 +223,10 @@ class StrategyGate:
         total_count = len(checks)
         overall_score = (passed_count / total_count) * 100 if total_count > 0 else 0
         
-        # 判断是否通过: 关键门控不能SKIPPED
-        critical_gates = {'IC均值', 'IC IR', '成本后超额收益', '最大回撤'}
+        # 判断是否通过: 8个门控必须全部PASSED，不允许FAILED或SKIPPED
         failed_count = sum(1 for c in checks if c.status == GateStatus.FAILED)
-        skipped_critical = sum(
-            1 for c in checks 
-            if c.status == GateStatus.SKIPPED and c.name in critical_gates
-        )
-        passed = failed_count == 0 and skipped_critical == 0
+        skipped_count = sum(1 for c in checks if c.status == GateStatus.SKIPPED)
+        passed = failed_count == 0 and skipped_count == 0
         
         # 生成建议
         if ic_mean < self.thresholds.ic_mean_min * 0.5:

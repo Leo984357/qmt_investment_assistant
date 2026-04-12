@@ -70,6 +70,44 @@ def test_artifact_yaml_serialization():
         excess_return=np.float64(0.12),
     )
     
+    # Add test for real backtest field names
+    nav_df = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=100),
+        'nav': np.linspace(1.0, 1.25, 100),
+    })
+    # Real backtest uses: fee, notional, trade_date (not execution_date, trade_value)
+    trades_df = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=10),
+        'symbol': ['000001.SZ'] * 10,
+        'notional': [100000.0] * 10,
+        'fee': [75.0] * 10,
+    })
+    
+    # Test _compute_metrics with real field names
+    rank_ic_df = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=50),
+        'rank_ic': np.random.randn(50) * 0.05,
+    })
+    
+    from src.experiment.artifact import _compute_metrics
+    metrics = _compute_metrics(nav_df, trades_df, rank_ic_df, None)
+    
+    # Verify cost is correctly computed from fee
+    assert metrics.total_cost == 750.0, f"Expected total_cost=750.0, got {metrics.total_cost}"
+    # Verify num_trades
+    assert metrics.num_trades == 10, f"Expected num_trades=10, got {metrics.num_trades}"
+    
+    # Test with cost column (old format)
+    trades_old = pd.DataFrame({
+        'trade_date': pd.date_range('2024-01-01', periods=5),
+        'symbol': ['000001.SZ'] * 5,
+        'trade_value': [50000.0] * 5,
+        'cost': [50.0] * 5,
+        'execution_date': pd.date_range('2024-01-01', periods=5),
+    })
+    metrics_old = _compute_metrics(nav_df, trades_old, rank_ic_df, None)
+    assert metrics_old.total_cost == 250.0, f"Expected total_cost=250.0, got {metrics_old.total_cost}"
+    
     artifact = ExperimentArtifact(
         run_id='test1234',
         experiment_name='test_experiment',

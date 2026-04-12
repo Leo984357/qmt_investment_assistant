@@ -175,12 +175,16 @@ def compute_yearly_metrics(
         drawdown = (nav_series - cummax) / cummax
         max_dd = abs(drawdown.min())
         
-        # 换手率
+        # 换手率 - 支持多种字段名
         if trades is not None and not trades.empty:
-            trades['execution_date'] = pd.to_datetime(trades['execution_date'])
-            year_trades = trades[trades['execution_date'].dt.year == year]
-            if 'trade_value' in year_trades.columns:
-                turnover = year_trades['trade_value'].sum()
+            # execution_date 或 trade_date
+            date_col = 'execution_date' if 'execution_date' in trades.columns else 'trade_date'
+            trades[date_col] = pd.to_datetime(trades[date_col])
+            year_trades = trades[trades[date_col].dt.year == year]
+            # trade_value 或 notional
+            value_col = 'trade_value' if 'trade_value' in year_trades.columns else 'notional'
+            if value_col in year_trades.columns:
+                turnover = year_trades[value_col].sum()
             else:
                 turnover = 0.0
             num_trades = len(year_trades)
@@ -348,7 +352,9 @@ class StrategyComparator:
                 bench = data['benchmark_nav'].copy()
                 bench['trade_date'] = pd.to_datetime(bench['trade_date'])
                 bench = bench.sort_values('trade_date')
-                base_benchmark = bench.set_index('trade_date')['nav'].pct_change().dropna()
+                # benchmark_nav 列可能是 'nav' 或 'benchmark_nav'
+                bm_col = 'benchmark_nav' if 'benchmark_nav' in bench.columns else 'nav'
+                base_benchmark = bench.set_index('trade_date')[bm_col].pct_change().dropna()
         
         for name, data in self._strategies.items():
             if base_benchmark is not None:

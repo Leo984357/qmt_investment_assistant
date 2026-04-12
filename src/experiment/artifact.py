@@ -287,13 +287,30 @@ def _compute_metrics(
     ic_std = rank_ic['rank_ic'].std() if not rank_ic.empty else 1.0
     ic_ir = ic_mean / ic_std if ic_std > 0 else 0.0
     
-    # 交易指标
-    total_cost = trades['cost'].sum() if not trades.empty and 'cost' in trades.columns else 0.0
-    num_trades = len(trades) if not trades.empty else 0
+    # 交易指标 - 支持多种字段名
+    if not trades.empty:
+        # cost 或 fee
+        if 'cost' in trades.columns:
+            total_cost = trades['cost'].sum()
+        elif 'fee' in trades.columns:
+            total_cost = trades['fee'].sum()
+        else:
+            total_cost = 0.0
+        num_trades = len(trades)
+    else:
+        total_cost = 0.0
+        num_trades = 0
     
-    # 估算平均换手率
-    if not trades.empty and 'trade_value' in trades.columns and 'execution_date' in trades.columns:
-        avg_turnover = trades.groupby('execution_date')['trade_value'].sum().mean()
+    # 估算平均换手率 - 支持多种字段名
+    if not trades.empty:
+        # execution_date 或 trade_date
+        date_col = 'execution_date' if 'execution_date' in trades.columns else 'trade_date'
+        # trade_value 或 notional
+        value_col = 'trade_value' if 'trade_value' in trades.columns else 'notional'
+        if date_col in trades.columns and value_col in trades.columns:
+            avg_turnover = trades.groupby(date_col)[value_col].sum().mean()
+        else:
+            avg_turnover = 0.0
     else:
         avg_turnover = 0.0
     
