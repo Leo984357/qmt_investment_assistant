@@ -43,6 +43,8 @@ db/*.sqlite
 db/*.db
 artifacts/
 mlruns/
+outputs/
+raw_data/
 *.parquet
 *.feather
 *.h5
@@ -52,9 +54,18 @@ mlruns/
 *.log
 logs/
 
+# Entry points and utilities (optional - uncomment if needed)
+# run_*.py
+# qmt_*.py
+# test_*.py
+# validate_*.py
+
 # OS
 .DS_Store
 Thumbs.db
+
+# Tool specific
+.opencode/
 
 # Documents (large PDFs)
 *.pdf
