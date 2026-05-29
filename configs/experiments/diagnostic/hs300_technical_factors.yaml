@@ -1,0 +1,95 @@
+name: hs300_technical_factors
+description: >
+  [DIAGNOSTIC ONLY] 使用技术因子测试：MA, Momentum, Reversal, WorldQuant Alphas
+  财务因子覆盖率低，技术因子100%覆盖
+  注意：包含多个被reject的因子(mom60/mom20/rev5/vol20/vol60)
+  仅用于因子诊断和对比研究，不可用于生产
+
+allow_rejected_factors: true
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2022-09-01'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: technical_factors
+  version: v1
+  names:
+    # Momentum
+    - mom120
+    - mom60
+    - mom20
+    # Reversal
+    - rev5
+    - rev20
+    # Volatility
+    - vol20
+    - vol60
+    # Technical
+    - ma_diff_5_20
+    - ma_diff_20_60
+    - price_to_ma20
+    - price_to_ma60
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+  financial_data_enabled: false
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: simple_average
+  version: v1
+  registry_stage: diagnostic
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  fallback_model: mom120_zscore
+  fallback_feature: mom120
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 15
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.067
+  cash_buffer: 0.0
+  min_trade_value: 2000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  risk_model: none
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 250000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: false
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.002
+  cost_cost_to_alpha_ratio: 0.3

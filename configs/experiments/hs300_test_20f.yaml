@@ -1,0 +1,90 @@
+name: hs300_batch_test_20f
+description: IC test - 20 factors quick test
+
+model:
+  family: simple_average
+  version: v1
+  registry_stage: diagnostic
+allow_rejected_factors: true
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2022-09-01'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  price_adjust: qfq
+features:
+  set_name: test20
+  version: v1
+  names:
+    - alpha_001
+    - alpha_002
+    - alpha_003
+    - alpha_006
+    - alpha_014
+    - alpha_016
+    - pe_ratio
+    - pb_ratio
+    - roe
+    - earnings_yield
+    - operating_margin
+    - gross_margin
+    - mom250
+    - mom120
+    - rsi14
+    - macd
+    - vol20
+    - turnover_rate
+    - close_to_high250
+    - close_to_low250
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: simple_average
+  version: v1
+  registry_stage: diagnostic
+  fallback_model: earnings_yield_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  fallback_feature: earnings_yield
+  params: {}
+signal:
+  name: cross_sectional_score
+  version: v1
+portfolio:
+  top_n: 15
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.067
+  cash_buffer: 0.0
+  min_trade_value: 2000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  risk_model: none
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 250000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+enhancer:
+  enabled: false

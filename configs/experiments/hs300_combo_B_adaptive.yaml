@@ -1,0 +1,76 @@
+name: hs300_combo_B_adaptive
+description: >
+  因子组合: 自适应IC加权
+  模型: adaptive_ic_weighted
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2019-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: combo_B_adaptive
+  version: v1
+  names:
+    - roe
+    - mom250
+    - rev20
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: adaptive_ic_weighted
+  version: v1
+  registry_stage: research
+  fallback_model: roe_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  params:
+    ic_lookback: 120
+    ic_half_life: 20
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+  min_trade_value: 3000
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2019-01-02'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: false

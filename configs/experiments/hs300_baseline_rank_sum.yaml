@@ -75,3 +75,5 @@ evaluation:
   version: v1
   params:
     quantiles: 5
+enhancer:
+  enabled: false

@@ -1,0 +1,128 @@
+name: hs300_regime_timing_v1
+description: >
+  均线择时策略
+  基于经济逻辑的因子组合 + 真正的市场状态检测
+  
+  因子:
+  - 价值: earnings_yield
+  - 盈利: roe
+  - 动量: mom250
+  - 质量: ocf_per_share
+  
+  择时逻辑:
+  - 牛市(价格>均线+均线向上): 满仓100%
+  - 熊市(价格<均线+均线向下): 空仓0%
+  - 震荡(其他): 轻仓30%
+  
+  经济逻辑:
+  - 牛市满仓享受趋势
+  - 熊市空仓规避风险
+  - 震荡轻仓减少磨损
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2019-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: regime_timing
+  version: v1
+  names:
+    - earnings_yield
+    - roe
+    - mom250
+    - ocf_per_share
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: adaptive_ic_weighted
+  version: v1
+  registry_stage: research
+  fallback_model: earnings_yield_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  params:
+    ic_lookback: 120
+    ic_half_life: 20
+    decay_lookback: 60
+    decay_threshold_ic: -0.03
+    decay_consecutive_neg: 5
+    decay_weight_cut: 0.5
+    decay_min_positive_rate: 0.35
+    enable_decay_monitor: true
+    min_factor_weight: 0.05
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  # 真正的择时配置
+  regime_detection: true
+  regime_short_window: 20
+  regime_long_window: 60
+  regime_volatility_window: 20
+  regime_bull_exposure: 1.0
+  regime_bear_exposure: 0.0
+  regime_trending_exposure: 1.0
+  regime_ranging_exposure: 0.3
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2019-01-02'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: true
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.0001
+  cost_cost_to_alpha_ratio: 0.5
+
+# ============================================================
+# Overlay策略声明
+# Regime Exposure是overlay策略，不是execution enhancement
+# 必须单独验证和归因
+# ============================================================
+overlay:
+  enabled: true
+  regime_exposure_enabled: true
+  hypothesis_id: "regime_timing_hypothesis_v1"
+  data_mined: true  # 本实验是数据挖掘发现，需在独立样本验证
+  frozen_after: null  # research阶段，无需冻结
+  notes: >
+    市场择时overlay：
+    - 使用均线关系判断牛熊震荡
+    - 改变alpha/beta结构，必须单独验证
+    - 当前结论仅适用于research，不可production

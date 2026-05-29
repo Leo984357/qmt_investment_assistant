@@ -84,7 +84,9 @@ def compute_benchmark_nav(
 
 def performance_summary(nav: pd.DataFrame, trades: pd.DataFrame, rank_ic: pd.DataFrame, benchmark_nav: pd.DataFrame | None = None) -> dict:
     daily_return = nav['daily_return'].fillna(0.0)
-    total_return = float(nav['nav'].iloc[-1] - 1.0)
+    start_nav = float(nav['nav'].iloc[0])
+    end_nav = float(nav['nav'].iloc[-1])
+    total_return = float(end_nav / max(start_nav, 1e-12) - 1.0)
     annual_return = float((1.0 + total_return) ** (252 / max(len(nav), 1)) - 1.0)
     annual_vol = float(daily_return.std(ddof=0) * np.sqrt(252))
     sharpe = annual_return / annual_vol if annual_vol > 1e-12 else 0.0
@@ -104,13 +106,16 @@ def performance_summary(nav: pd.DataFrame, trades: pd.DataFrame, rank_ic: pd.Dat
         'avg_rank_ic': round(avg_rank_ic, 4),
     }
     if benchmark_nav is not None and not benchmark_nav.empty:
-        benchmark_total_return = float(benchmark_nav['benchmark_nav'].iloc[-1] - 1.0)
         merged = nav[['trade_date', 'nav']].merge(benchmark_nav[['trade_date', 'benchmark_nav']], on='trade_date', how='left')
         merged['benchmark_nav'] = merged['benchmark_nav'].ffill().bfill()
         merged = merged.dropna(subset=['benchmark_nav']).copy()
         if not merged.empty:
-            excess_total_return = float(merged['nav'].iloc[-1] / max(merged['benchmark_nav'].iloc[-1], 1e-9) - 1.0)
-            summary['benchmark_total_return'] = round(benchmark_total_return, 4)
+            strategy_return = float(merged['nav'].iloc[-1] / max(merged['nav'].iloc[0], 1e-12) - 1.0)
+            benchmark_return = float(
+                merged['benchmark_nav'].iloc[-1] / max(merged['benchmark_nav'].iloc[0], 1e-12) - 1.0
+            )
+            excess_total_return = strategy_return - benchmark_return
+            summary['benchmark_total_return'] = round(benchmark_return, 4)
             summary['excess_total_return'] = round(excess_total_return, 4)
     return summary
 

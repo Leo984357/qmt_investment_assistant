@@ -119,15 +119,17 @@ class FactorResponseMonitor:
             self._rank_ic_history[factor_name].append(rank_ic)
             
             prev_status = self._current_status[factor_name]
-            prev_weight = self._weights[factor_name]
             
             self._update_consecutive_count(factor_name, ic)
             
-            new_status, action = self._determine_status_and_action(factor_name, ic)
+            new_status, action, new_weight = self._determine_status_and_action(factor_name, ic)
             
             if new_status != prev_status:
                 self._current_status[factor_name] = new_status
                 self._status_history[factor_name].append((trade_date, new_status, action))
+            
+            # 更新权重
+            self._weights[factor_name] = new_weight
             
             record = FactorResponseRecord(
                 trade_date=trade_date,
@@ -155,44 +157,61 @@ class FactorResponseMonitor:
             self._consecutive_negative[factor_name] = 0
             self._consecutive_positive[factor_name] = 0
     
-    def _determine_status_and_action(self, factor_name: str, ic: float) -> tuple[FactorStatus, str]:
-        """根据IC确定状态和行动"""
-        status = FactorStatus.ACTIVE
-        action = "none"
+    def _determine_status_and_action(self, factor_name: str, ic: float) -> tuple[FactorStatus, str, float]:
+        """
+        根据IC确定状态和行动
         
+        Returns:
+            tuple[FactorStatus, action_description, weight]
+        
+        核心原则：
+        1. 默认保持当前状态（慢速变化）
+        2. 恶化条件满足 → 立即降级
+        3. 恢复条件满足 → 逐步升级（不能跳级）
+        """
+        prev_status = self._current_status[factor_name]
+        prev_weight = self._weights[factor_name]
+        
+        # 1. 检查立即下线条件（最高优先级）
         if ic < self.ic_threshold_offline:
-            status = FactorStatus.OFFLINE
-            action = "IMMEDIATE OFFLINE - IC below threshold"
-            self._weights[factor_name] = 0.0
+            return FactorStatus.OFFLINE, "IMMEDIATE OFFLINE - IC below threshold", 0.0
         
-        elif self._consecutive_negative[factor_name] >= self.consecutive_days_offline:
-            if self._current_status[factor_name] != FactorStatus.OFFLINE:
-                status = FactorStatus.OFFLINE
-                action = f"OFLLINE after {self._consecutive_negative[factor_name]} consecutive negative IC"
-                self._weights[factor_name] = 0.0
+        # 2. 检查连续负IC导致的下线
+        if self._consecutive_negative[factor_name] >= self.consecutive_days_offline:
+            if prev_status != FactorStatus.OFFLINE:
+                return FactorStatus.OFFLINE, f"OFFLINE after {self._consecutive_negative[factor_name]} consecutive negative IC", 0.0
         
-        elif self._consecutive_negative[factor_name] >= self.consecutive_days_reduce:
-            if self._current_status[factor_name] not in [FactorStatus.OFFLINE, FactorStatus.REDUCED]:
-                status = FactorStatus.REDUCED
-                action = f"REDUCED 50% after {self._consecutive_negative[factor_name]} consecutive negative IC"
-                self._weights[factor_name] = 0.5
+        # 3. 检查连续负IC导致的降权
+        if self._consecutive_negative[factor_name] >= self.consecutive_days_reduce:
+            if prev_status not in [FactorStatus.OFFLINE, FactorStatus.REDUCED]:
+                return FactorStatus.REDUCED, f"REDUCED 50% after {self._consecutive_negative[factor_name]} consecutive negative IC", 0.5
         
-        elif self._consecutive_negative[factor_name] >= self.consecutive_days_watch:
-            if self._current_status[factor_name] == FactorStatus.ACTIVE:
-                status = FactorStatus.WATCH
-                action = f"WATCH after {self._consecutive_negative[factor_name]} consecutive negative IC"
+        # 4. 检查进入观察
+        if self._consecutive_negative[factor_name] >= self.consecutive_days_watch:
+            if prev_status == FactorStatus.ACTIVE:
+                return FactorStatus.WATCH, f"WATCH after {self._consecutive_negative[factor_name]} consecutive negative IC", prev_weight
         
-        elif self._consecutive_positive[factor_name] >= self.consecutive_days_recover:
-            if self._current_status[factor_name] == FactorStatus.WATCH:
-                status = FactorStatus.ACTIVE
-                action = f"RECOVERED after {self._consecutive_positive[factor_name]} consecutive positive IC"
-                self._weights[factor_name] = 1.0
+        # 5. 检查恢复条件（只有WATCH状态可以直接恢复）
+        if self._consecutive_positive[factor_name] >= self.consecutive_days_recover:
+            if prev_status == FactorStatus.WATCH:
+                return FactorStatus.ACTIVE, f"RECOVERED after {self._consecutive_positive[factor_name]} consecutive positive IC", 1.0
         
-        elif self._current_status[factor_name] == FactorStatus.OFFLINE:
-            status = FactorStatus.RESERVE
-            action = "Reserve pool - awaiting recovery"
+        # 6. OFFLINE/RESERVE/REDUCED 状态保持，不自动恢复
+        if prev_status == FactorStatus.OFFLINE:
+            return FactorStatus.RESERVE, "Reserve pool - awaiting recovery", 0.0
         
-        return status, action
+        if prev_status == FactorStatus.RESERVE:
+            return FactorStatus.RESERVE, "Still in reserve", 0.0
+        
+        if prev_status == FactorStatus.REDUCED:
+            return FactorStatus.REDUCED, "Still reduced - need full recovery period", 0.5
+        
+        # 7. WATCH 状态保持（除非满足恢复条件）
+        if prev_status == FactorStatus.WATCH:
+            return FactorStatus.WATCH, f"Still watching - {self._consecutive_positive[factor_name]}/{self.consecutive_days_recover} positive IC to recover", prev_weight
+        
+        # 8. ACTIVE 状态保持
+        return FactorStatus.ACTIVE, "none", 1.0
     
     def get_health_snapshot(self) -> pd.DataFrame:
         """获取当前健康快照"""

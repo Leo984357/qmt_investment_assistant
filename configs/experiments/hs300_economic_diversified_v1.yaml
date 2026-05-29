@@ -1,0 +1,113 @@
+name: hs300_economic_diversified_v1
+description: >
+  经济逻辑多样化因子策略
+  
+  设计原则:
+  1. 低相关性: 因子来自不同经济维度
+  2. 稳健性: 每个因子有清晰的经济解释
+  3. 互补性: 各因子在不同市场状态下发挥作用
+  
+  因子选择 (6个不同维度):
+  - 盈利: roe (净资产收益率)
+  - 成长: revenue_growth (营收增速)
+  - 效率: asset_turnover (资产周转率)
+  - 估值: cashflow_yield (现金流收益率)
+  - 风险: debt_to_equity (资产负债率)
+  - 动量: mom250 (250日动量)
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2019-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: economic_diversified
+  version: v1
+  names:
+    - roe
+    - revenue_growth
+    - asset_turnover
+    - cashflow_yield
+    - debt_to_equity
+    - mom250
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: ridge_regression
+  version: v1
+  registry_stage: research
+  fallback_model: roe_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  params:
+    alpha: 1.0
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  regime_detection: true
+  regime_short_window: 20
+  regime_long_window: 60
+  regime_volatility_window: 20
+  regime_bull_exposure: 1.0
+  regime_bear_exposure: 0.0
+  regime_trending_exposure: 1.0
+  regime_ranging_exposure: 0.3
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2019-01-02'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: true
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.0001
+  cost_cost_to_alpha_ratio: 0.5
+
+# ============================================================
+# Overlay策略声明
+# ============================================================
+overlay:
+  enabled: true
+  regime_exposure_enabled: true
+  hypothesis_id: "economic_diversified_hypothesis_v1"
+  data_mined: true
+  frozen_after: null
+  notes: >
+    多样化经济因子 + 市场择时overlay

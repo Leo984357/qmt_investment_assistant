@@ -1,4 +1,13 @@
 """
+DEPRECATED / DO NOT USE FOR FORMAL RESEARCH
+===========================================
+此脚本使用已废弃的标签口径和禁止的因子(IC结果不可用于正式结论)。
+
+禁止使用的因子: alpha_017, alpha_006, alpha_004, alpha_002
+原因: 使用旧标签口径 pct_change(20).shift(-20)
+
+正式研究入口: python -m src.cli experiment --config configs/experiments/<name>.yaml
+
 真实的Walk-Forward OOS验证 - 简化版
 
 每个窗口：

@@ -1,0 +1,82 @@
+name: hs300_momentum_rsi_kdj
+description: >
+  动量+RSI+KDJ三因子
+  close_to_high250 + rsi14 + kdj_k14
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2022-09-01'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: momentum_rsi_kdj
+  version: v1
+  names:
+    - close_to_high250
+    - rsi14
+    - kdj_k14
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: ic_weighted_average
+  version: v1
+  registry_stage: research
+  fallback_model: close_to_high250_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  risk_model: qmt_style_ladder
+  risk_ma_short_window: 60
+  risk_ma_long_window: 120
+  risk_momentum_window: 20
+  risk_mid_exposure: 0.80
+  risk_low_exposure: 0.55
+  risk_crash_exposure: 0.40
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: true
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.0001
+  cost_cost_to_alpha_ratio: 0.5

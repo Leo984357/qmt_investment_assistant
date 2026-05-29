@@ -290,15 +290,13 @@ def financial_factor_registry() -> FeatureRegistry:
         
         registry.register(FeatureSpec(
             name=spec.name,
-            inputs=(),  # 财务因子不需要价格数据输入
+            inputs=(),
             lookback=1,
-            description=f'{spec.description} ({spec.barra_name})',
+            description=f'{spec.description} (barra: {spec.barra_name})',
             compute=compute_fn,
             category='financial',
             preprocessing=('winsorize', 'cross_sectional_scale'),
-            barra_name=spec.barra_name,
-            source='financial',
-            direction=spec.direction,
+            economic_meaning=f'Direction: {spec.direction}',
         ))
     
     return registry

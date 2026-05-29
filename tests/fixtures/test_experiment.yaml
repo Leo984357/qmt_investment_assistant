@@ -3,8 +3,8 @@ description: Small end-to-end experiment used for integration testing.
 data:
   source: mock_ashare
   snapshot_id: smoke_snapshot_v1
-  start_date: '2023-01-02'
-  end_date: '2024-06-28'
+  start_date: '2019-01-02'
+  end_date: '2020-06-28'
   universe_name: HS300
   n_symbols_master: 90
   n_universe: 60
@@ -44,6 +44,10 @@ model:
     min_child_samples: 20
     random_state: 11
     verbosity: -1
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
 portfolio:
   top_n: 10
   weighting: equal
@@ -62,3 +66,4 @@ backtest:
   slippage_bps: 5
   rebalance_frequency_days: 10
   trade_delay_days: 1
+  anchor_mode: follow_backtest_start

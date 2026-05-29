@@ -1,0 +1,157 @@
+name: hs300_full_factor_ic_test_v1
+description: >
+  全因子IC测试
+  测试123个因子的IC，选出Top因子
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2019-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: full_factor_ic_test
+  version: v1
+  names:
+    - roe
+    - roa
+    - gross_margin
+    - operating_margin
+    - net_margin
+    - eps
+    - revenue_growth
+    - profit_growth
+    - equity_growth
+    - asset_growth
+    - asset_turnover
+    - inventory_turnover
+    - receivables_turnover
+    - cash_ratio
+    - current_ratio
+    - quick_ratio
+    - debt_to_equity
+    - debt_ratio
+    - interest_coverage
+    - pe_ratio
+    - pb_ratio
+    - ps_ratio
+    - pc_ratio
+    - dividend_yield
+    - book_to_price
+    - earnings_yield
+    - cashflow_yield
+    - ocf_per_share
+    - free_cash_flow
+    - mom250
+    - mom120
+    - mom60
+    - mom30
+    - mom20
+    - mom10
+    - mom5
+    - alpha_001
+    - alpha_002
+    - alpha_003
+    - alpha_004
+    - alpha_005
+    - alpha_006
+    - alpha_007
+    - alpha_008
+    - alpha_009
+    - alpha_010
+    - rsi6
+    - rsi12
+    - rsi24
+    - macd
+    - macd_diff
+    - macd_signal
+    - adx14
+    - adx28
+    - cci14
+    - williams_r
+    - stoch_k
+    - stoch_d
+    - mfi14
+    - atr14
+    - vol20
+    - vol60
+    - vol120
+    - vol_ratio_5_20
+    - vol_ratio_10_60
+    - turnover_rate
+    - amount
+    - amihud_illiq_5d
+    - amihud_illiq_20d
+    - amihud_illiq_60d
+    - rev20
+    - rev10
+    - rev5
+    - close_to_high250
+    - close_to_high120
+    - close_to_high60
+    - close_to_low250
+    - price_to_ma20
+    - price_to_ma60
+    - price_to_ma120
+    - ma_diff_5_20
+    - ma_diff_10_60
+    - high_low_pos20
+    - high_low_pos60
+    - upper_shadow_ratio
+    - lower_shadow_ratio
+    - body_ratio
+    - volatility_20d
+    - volatility_60d
+    - return_std_20
+    - return_std_60
+    - downside_volatility
+    - return_skew20
+    - return_kurt20
+    - market_breadth
+    - up_day_ratio_20d
+    - down_day_ratio_20d
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: simple_average
+  version: v1
+  registry_stage: research
+  fallback_model: roe_zscore
+  train_window_days: 500
+signal:
+  name: cross_sectional_score
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+  cash_buffer: 0.0
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2019-01-02'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+enhancer:
+  enabled: false

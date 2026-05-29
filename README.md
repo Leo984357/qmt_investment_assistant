@@ -4,6 +4,22 @@
 
 ---
 
+## 唯一正式入口 (Agent必读)
+
+```
+python -m src.cli experiment --config configs/experiments/<name>.yaml
+```
+
+**禁止用于正式结论的入口**：
+- ❌ `src/research_pipeline.py` - 废弃
+- ❌ `src/research_orchestrator.py` - 废弃
+- ❌ `scripts/*_ic_test.py` - 旧标签口径
+- ❌ `scripts/archive/*` - 不可复现
+
+**详细规范**: [docs/AGENT_WORKFLOW.md](docs/AGENT_WORKFLOW.md)
+
+---
+
 ## 快速开始
 
 ### 1. 安装依赖
@@ -13,27 +29,33 @@ cd /Users/leolee/Desktop/qmt_investment_assistant
 pip install -r requirements.txt
 ```
 
-### 2. 初始化数据 (首次运行)
+### 2. 审计配置
 
 ```bash
-python scripts/bootstrap_data.py
+python -m src.cli audit-config --config configs/experiments/hs300_single_close_to_high250.yaml
 ```
 
-### 3. 运行实验 (推荐配置)
+### 3. 运行实验
 
 ```bash
-# Ridge回归基线 (最高收益)
-python -m src.cli experiment --config configs/experiments/hs300_ridge_baseline.yaml
+# discovery候选，不是正式策略
+python -m src.cli experiment --config configs/experiments/hs300_single_close_to_high250.yaml
 
-# Ridge+Support因子 (最高Sharpe)
-python -m src.cli experiment --config configs/experiments/hs300_ridge_with_support.yaml
-```
-
-### 4. 查看结果
-
-```bash
+# 查看实验结果
 python -m src.cli runs --limit 5
 ```
+
+### 4. 配置阶段
+
+所有实验必须区分 `research_protocol.stage`：
+
+| stage | 含义 | 允许结论 |
+|------|------|----------|
+| diagnostic | 诊断 | 不产出策略结论 |
+| discovery | 候选发现 | 只能称为 candidate |
+| validation | 冻结验证 | 只能称为 validated candidate |
+| holdout | 锁定样本 | 只能作为晋级证据 |
+| production | 已晋级 | 当前研究合同下的正式策略 |
 
 ---
 
@@ -49,16 +71,15 @@ qmt_investment_assistant/
 │   ├── README.md               # 配置说明
 │   ├── experiments/            # 实验配置
 │   │   ├── README.md          # 实验配置说明
-│   │   ├── hs300_ridge_baseline.yaml           # ⭐ 推荐配置
-│   │   ├── hs300_ridge_with_support.yaml       # 最高Sharpe
-│   │   ├── hs300_ridge_full_risk.yaml          # 保守风控
+│   │   ├── hs300_single_close_to_high250.yaml  # discovery候选
+│   │   ├── hs300_mom_volume.yaml               # discovery候选
+│   │   ├── diagnostic/                         # 诊断配置
 │   │   └── ARCHIVE/           # 归档配置
 │   └── ...
 │
 ├── scripts/                    # 脚本
 │   ├── README.md               # 脚本说明
-│   ├── run_experiment.py       # 运行实验 (CLI入口)
-│   ├── run_best_strategy.py    # 最佳策略回测
+│   ├── README.md               # 脚本说明
 │   └── archive/                # 归档脚本
 │
 ├── src/                       # 源代码
@@ -81,23 +102,21 @@ qmt_investment_assistant/
 
 ---
 
-## 推荐实验配置
+## 当前策略状态
 
-| 配置 | 特点 | 总收益 | Sharpe | 最大回撤 |
-|------|------|--------|--------|----------|
-| `hs300_ridge_baseline.yaml` ⭐ | 平衡型 | 34.7% | 0.715 | -14.0% |
-| `hs300_baseline_rank_sum.yaml` | 简单基线 | 5.3% | 0.333 | -20.5% |
+当前没有可以直接称为 production 的策略。已有好结果必须先视为 discovery candidate，再经过冻结验证和 locked holdout。
 
-> **修复说明**: 已修复财务因子 point-in-time（避免未来函数）、Ridge embargo（标签隔离）、组合增强器日期错配和单位混用问题。修复后 IC 更可信但略有下降。
+| 配置 | 阶段 | 说明 |
+|------|------|------|
+| `hs300_single_close_to_high250.yaml` | discovery | 单因子价格位置/长动量候选 |
+| `hs300_mom_volume.yaml` | discovery | 动量 + 成交量确认候选，含未入档因子 |
 
 ### 运行命令
 
 ```bash
-# 推荐: Ridge回归基线
-python -m src.cli experiment --config configs/experiments/hs300_ridge_baseline.yaml
-
-# 最高Sharpe配置
-python -m src.cli experiment --config configs/experiments/hs300_ridge_with_support.yaml
+# 先审计，再运行
+python -m src.cli audit-config --config configs/experiments/hs300_single_close_to_high250.yaml
+python -m src.cli experiment --config configs/experiments/hs300_single_close_to_high250.yaml
 
 # 查看实验列表
 python -m src.cli runs --limit 10
@@ -108,39 +127,39 @@ python -m src.cli runs --limit 10
 ## 研究流程
 
 ```
-数据 → 因子 → 模型 → 信号 → 组合 → [增强器] → 回测 → 评估
-                                    ↑
-                        PositionBuffer (减少换手)
-                        WeightSmoother (平滑过渡)
-                        CostFilter (成本过滤)
+研究问题 → 假设 → 因子治理 → 候选生成 → 冻结协议 → 验证 → holdout → 晋级 → 监控
 ```
 
 ### 完整流程
 
-1. **数据准备**: `scripts/bootstrap_data.py`
-2. **特征构建**: 因子计算 + Z-score标准化
-3. **模型训练**: Ridge回归 / LightGBM / 简单平均
-4. **信号生成**: 横截面分数排序
-5. **组合构建**: Top-N等权 + 风控
-6. **组合增强**: PositionBuffer + WeightSmoother + CostFilter
-7. **回测验证**: 真实价格 + 成本模拟
-8. **评估报告**: IC、收益、回撤、月报
+1. **研究问题**: 明确市场、股票池、频率、标签、成本、基准和成功标准。
+2. **假设登记**: 用经济机制解释候选信号，不能用回测收益倒推故事。
+3. **因子治理**: 因子必须可计算、时点干净，并在 catalog 中登记状态。
+4. **候选生成**: discovery 阶段允许探索，但必须标记 `data_mined: true`。
+5. **冻结验证**: validation 前冻结因子、模型、参数、组合和成本假设。
+6. **Locked Holdout**: holdout 只作为最终证据，不允许边看边改。
+7. **多重检验控制**: 记录试过多少因子、参数、模型和候选策略，并用随机基准、permutation 或白噪声基线惩罚数据挖掘。
+8. **风险归因**: 检查收益是否来自行业、size、beta、流动性或主题暴露，而不是 alpha。
+9. **Overlay 分离**: 缓冲、平滑、成本过滤是执行增强；市场择时和仓位开关是 overlay strategy，必须单独验证。
+10. **晋级生产**: production 必须显式 `data_mined: false` 并通过 Gate/Artifact/审计。
+11. **退化监控**: 用滞后兑现 IC 跟踪因子健康。
 
 ---
 
-## 核心因子 (9个)
+## 核心因子 (6个)
 
-| 因子 | IC | IC IR | 类型 |
+**因子档案**: `src/features/factor_catalog.py` (144因子)
+
+| 因子 | IC | IC IR | 状态 |
 |------|-----|-------|------|
-| alpha_017 | 0.094 | 0.588 | WorldQuant |
-| earnings_yield | 0.041 | 0.368 | 财务 |
-| roe | 0.036 | 0.320 | 财务 |
-| alpha_006 | 0.036 | 0.315 | WorldQuant |
-| alpha_002 | 0.030 | 0.227 | WorldQuant |
-| ocf_per_share | 0.032 | 0.266 | 财务 |
-| operating_margin | 0.022 | 0.256 | 财务 |
-| asset_turnover | 0.016 | 0.171 | 财务 |
-| equity_growth | 0.016 | 0.162 | 财务 |
+| earnings_yield | 0.048 | 0.430 | CORE |
+| roe | 0.041 | 0.363 | CORE |
+| operating_margin | 0.027 | 0.307 | CORE |
+| ocf_per_share | 0.032 | 0.266 | CORE |
+| mom250 | 0.035 | 0.160 | CORE |
+| close_to_high250 | 0.023 | 0.110 | CORE |
+
+**完整因子档案**: `python -c "from src.features.factor_catalog import build_default_catalog; c=build_default_catalog(); print(c.inventory())"`
 
 ---
 

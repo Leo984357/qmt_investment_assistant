@@ -1,0 +1,124 @@
+name: hs300_price_volume_theory_v1
+description: >
+  价量理论多因子策略
+  
+  ========== 理论框架 ==========
+  
+  1. 趋势延续理论 (Trend Continuation)
+     - 理论基础: 投资者反应不足，趋势会延续
+     - 学术支持: Jegadeesh & Titman (1993) Momentum
+     - 因子: mom250, close_to_high250
+  
+  2. 超跌反弹理论 (Mean Reversion)
+     - 理论基础: 超买超卖后会回归均值
+     - 学术支持: De Bondt & Thaler (1985) Reversal
+     - 因子: rev20
+  
+  3. 量价背离理论 (Volume-Price Divergence)
+     - 理论基础: 放量上涨/缩量下跌是趋势信号
+     - 实务支持: OBV、量价配合
+     - 因子: vol_ratio_5_20
+  
+  4. 动量-反转周期理论 (Momentum-Reversion Cycle)
+     - 理论基础: 不同周期动量/反转主导
+     - 短期反转 + 中长期动量
+     - 因子组合: rev5 + mom120
+  
+  ========== 因子选择 ==========
+  - mom250: 长期趋势延续 (CORE, IC=0.035)
+  - close_to_high250: 趋势位置确认 (CORE, IC=0.023)
+  - rev20: 20日超跌反弹 (BACKUP, IC=0.019)
+  - vol_ratio_5_20: 量能变化趋势 (BACKUP, IC=0.001)
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2019-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: price_volume_theory
+  version: v1
+  names:
+    - mom250
+    - close_to_high250
+    - rev20
+    - vol_ratio_5_20
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: ridge_regression
+  version: v1
+  registry_stage: research
+  fallback_model: mom250_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  params:
+    alpha: 1.0
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  regime_detection: true
+  regime_short_window: 20
+  regime_long_window: 60
+  regime_volatility_window: 20
+  regime_bull_exposure: 1.0
+  regime_bear_exposure: 0.0
+  regime_trending_exposure: 1.0
+  regime_ranging_exposure: 0.3
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2019-01-02'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: true
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.0001
+  cost_cost_to_alpha_ratio: 0.5
+
+overlay:
+  enabled: true
+  regime_exposure_enabled: true
+  hypothesis_id: "price_volume_theory_hypothesis_v1"
+  data_mined: true
+  frozen_after: null
+  notes: >
+    价量理论多因子 + 市场择时overlay
+    理论: 趋势延续 + 超跌反弹 + 量价背离

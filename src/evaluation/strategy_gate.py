@@ -186,6 +186,10 @@ class StrategyGate:
         warnings = []
         recommendations = []
         
+        # Gate 0: 零交易硬失败
+        trade_check = self._check_trade_count(trades)
+        checks.append(trade_check)
+        
         # Gate 1: IC均值
         ic_mean, ic_check = self._check_ic_mean(rank_ic)
         checks.append(ic_check)
@@ -215,7 +219,7 @@ class StrategyGate:
         checks.append(yearly_check)
         
         # Gate 8: 相对基线增量
-        strategy_sharpe, sharpe_check = self._check_sharpe_vs_baseline(nav, baseline_sharpe)
+        sharpe_increment, strategy_sharpe, sharpe_check = self._check_sharpe_vs_baseline(nav, baseline_sharpe)
         checks.append(sharpe_check)
         
         # 计算总分
@@ -223,7 +227,8 @@ class StrategyGate:
         total_count = len(checks)
         overall_score = (passed_count / total_count) * 100 if total_count > 0 else 0
         
-        # 判断是否通过: 8个门控必须全部PASSED，不允许FAILED或SKIPPED
+        # 判断是否通过: 9个门控必须全部PASSED，不允许FAILED或SKIPPED
+        # Gate 0 (零交易检测) 是硬失败，任何失败都算失败
         failed_count = sum(1 for c in checks if c.status == GateStatus.FAILED)
         skipped_count = sum(1 for c in checks if c.status == GateStatus.SKIPPED)
         passed = failed_count == 0 and skipped_count == 0
@@ -255,6 +260,19 @@ class StrategyGate:
             gate_checks=checks,
             recommendations=recommendations,
             warnings=warnings,
+        )
+    
+    def _check_trade_count(self, trades: Optional[pd.DataFrame]) -> GateCheck:
+        """Gate 0: 零交易硬失败"""
+        trade_count = len(trades) if trades is not None else 0
+        passed = trade_count > 0
+        
+        return GateCheck(
+            name="零交易检测",
+            status=GateStatus.PASSED if passed else GateStatus.FAILED,
+            value=float(trade_count),
+            threshold=1.0,
+            message=f"交易数 {'≥ 1' if passed else '= 0 (硬失败)'}",
         )
     
     def _check_ic_mean(self, rank_ic: Optional[pd.DataFrame]) -> tuple[float, GateCheck]:
@@ -481,10 +499,10 @@ class StrategyGate:
             message=f"年度胜率 {'≥' if passed else '<'} {self.thresholds.yearly_win_rate_min:.0%} ({positive_years}/{total_years}年正收益)",
         )
     
-    def _check_sharpe_vs_baseline(self, nav: pd.DataFrame, baseline_sharpe: float) -> tuple[float, GateCheck]:
+    def _check_sharpe_vs_baseline(self, nav: pd.DataFrame, baseline_sharpe: float) -> tuple[float, float, GateCheck]:
         """Gate 8: 相对基线增量"""
         if nav is None or nav.empty:
-            return 0.0, GateCheck(
+            return 0.0, 0.0, GateCheck(
                 name="相对基线增量",
                 status=GateStatus.SKIPPED,
                 value=0.0,
@@ -497,7 +515,7 @@ class StrategyGate:
         daily_returns = nav_series.pct_change().dropna()
         
         if len(daily_returns) < 60:
-            return 0.0, GateCheck(
+            return 0.0, 0.0, GateCheck(
                 name="相对基线增量",
                 status=GateStatus.SKIPPED,
                 value=0.0,
@@ -512,7 +530,7 @@ class StrategyGate:
         sharpe_increment = strategy_sharpe - baseline_sharpe
         passed = sharpe_increment >= self.thresholds.sharpe_vs_baseline_min
         
-        return sharpe_increment, GateCheck(
+        return sharpe_increment, strategy_sharpe, GateCheck(
             name="相对基线增量",
             status=GateStatus.PASSED if passed else GateStatus.FAILED,
             value=sharpe_increment,

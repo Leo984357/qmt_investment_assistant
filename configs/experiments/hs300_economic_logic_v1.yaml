@@ -1,0 +1,85 @@
+name: hs300_economic_logic_v1
+description: >
+  基于经济逻辑的多因子策略
+  - 价值: earnings_yield (IC=0.048, 熊市防御)
+  - 盈利: roe (IC=0.041, 牛市进攻)
+  - 动量: mom250 (IC=0.035, 趋势市)
+  - 质量: ocf_per_share (IC=0.032, 全市场)
+  
+  市场判断: 熊市加价值/质量, 牛市加动量/盈利
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2019-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: economic_logic
+  version: v1
+  names:
+    # 价值因子 - 熊市防御
+    - earnings_yield
+    # 盈利因子 - 牛市进攻
+    - roe
+    # 动量因子 - 趋势市
+    - mom250
+    # 质量因子 - 全市场
+    - ocf_per_share
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: ic_weighted_average
+  version: v1
+  registry_stage: research
+  fallback_model: earnings_yield_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2019-01-02'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: true
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.0001
+  cost_cost_to_alpha_ratio: 0.5

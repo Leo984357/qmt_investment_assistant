@@ -218,7 +218,7 @@ ACADEMIC_FACTORS = [
         computation="max daily return in past month",
     ),
     AcademicFeatureSpec(
-        name=" idiosyncratic_vol",
+        name="idiosyncratic_vol",
         category="behavioral",
         description="特质波动率因子 (IVOL)",
         economic_interpretation="低IVOL股票高收益",
@@ -365,7 +365,7 @@ ACADEMIC_FACTORS = [
         computation="Merton distance to default",
     ),
     AcademicFeatureSpec(
-        name=" Altman_zscore",
+        name="Altman_zscore",
         category="distress",
         description="Altman Z-Score",
         economic_interpretation="财务困境风险",

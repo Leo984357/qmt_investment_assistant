@@ -1,0 +1,178 @@
+name: hs300_batch1_ic_test
+description: IC test batch 1 - first 100 factors
+
+model:
+  family: simple_average
+  version: v1
+  registry_stage: diagnostic
+
+allow_rejected_factors: true
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2022-09-01'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: batch1
+  version: v1
+  names:
+    - Altman_zscore
+    - abnormal_vol_return
+    - abnormal_volume_ratio
+    - acceleration_20
+    - accrual_ratio
+    - accruals
+    - accuracy_weighted_eps
+    - adx14
+    - adx28
+    - adx_slope
+    - alpha_001
+    - alpha_002
+    - alpha_003
+    - alpha_004
+    - alpha_005
+    - alpha_006
+    - alpha_007
+    - alpha_008
+    - alpha_009
+    - alpha_010
+    - alpha_011
+    - alpha_012
+    - alpha_013
+    - alpha_014
+    - alpha_015
+    - alpha_016
+    - alpha_017
+    - alpha_018
+    - alpha_019
+    - alpha_020
+    - alpha_021
+    - alpha_022
+    - alpha_023
+    - alpha_024
+    - alpha_025
+    - alpha_026
+    - alpha_027
+    - alpha_028
+    - alpha_029
+    - alpha_030
+    - alpha_031
+    - alpha_032
+    - alpha_033
+    - alpha_034
+    - alpha_035
+    - alpha_036
+    - alpha_037
+    - alpha_038
+    - alpha_039
+    - alpha_040
+    - alpha_041
+    - alpha_042
+    - alpha_043
+    - alpha_044
+    - alpha_045
+    - alpha_046
+    - alpha_047
+    - alpha_048
+    - alpha_049
+    - alpha_050
+    - alpha_067
+    - alpha_068
+    - alpha_070
+    - alpha_071
+    - alpha_072
+    - alpha_073
+    - alpha_074
+    - alpha_075
+    - alpha_076
+    - alpha_077
+    - alpha_086
+    - alpha_087
+    - alpha_088
+    - alpha_092
+    - alpha_093
+    - alpha_094
+    - altman_zscore
+    - amihud_illiq_20d
+    - amihud_illiq_5d
+    - amihud_illiq_60d
+    - amihud_illiquidity
+    - amount_growth20
+    - amount_growth5
+    - amount_growth60
+    - analyst_coverage
+    - analyst_performance_rank
+    - analyst_price_divergence
+    - analyst_report_sentiment
+    - analyst_sentiment
+    - ar_turnover
+    - ar_turnover_days
+    - aroon_oscillator
+    - asset_growth
+    - asset_growth_yoy
+    - asset_quality
+    - asset_turnover
+    - asset_turnover_days
+    - asset_turnover_ratio
+    - asset_turnover_ttm
+    - atr14
+    - atr20
+    - atr28
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+  financial_data_enabled: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: simple_average
+  version: v1
+  registry_stage: diagnostic
+  fallback_model: earnings_yield_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  fallback_feature: earnings_yield
+  params: {}
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 15
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.067
+  cash_buffer: 0.0
+  min_trade_value: 2000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  risk_model: none
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 250000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: false

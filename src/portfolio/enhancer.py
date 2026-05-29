@@ -6,6 +6,42 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
+from src.portfolio.regime_detector import (
+    MarketRegime,
+    RegimeConfig as BaseRegimeConfig,
+    detect_market_regime,
+    get_regime_exposure_multiplier,
+)
+
+
+@dataclass
+class RegimeExposureConfig:
+    """市场状态仓位调整配置
+    
+    经济逻辑：
+    - 牛市: 满仓享受趋势收益
+    - 熊市: 空仓规避系统性风险
+    - 趋势市: 满仓跟随趋势
+    - 震荡市: 降低仓位减少磨损
+    """
+    enabled: bool = True
+    short_window: int = 20
+    long_window: int = 60      # 缩短到60日，更敏感
+    volatility_window: int = 20
+    bull_exposure: float = 1.0      # 牛市满仓
+    bear_exposure: float = 0.0      # 熊市空仓
+    trending_exposure: float = 1.0    # 趋势市满仓
+    ranging_exposure: float = 0.3    # 震荡市轻仓
+    
+    def get_exposure(self, regime: MarketRegime) -> float:
+        mapping = {
+            MarketRegime.BULL: self.bull_exposure,
+            MarketRegime.BEAR: self.bear_exposure,
+            MarketRegime.TRENDING: self.trending_exposure,
+            MarketRegime.RANGING: self.ranging_exposure,
+        }
+        return mapping.get(regime, 0.5)
+
 
 @dataclass
 class BufferConfig:
@@ -25,8 +61,8 @@ class SmootherConfig:
 @dataclass
 class CostFilterConfig:
     """成本-边际收益过滤配置"""
-    min_alpha_threshold: float = 0.002  # 最小边际收益0.2%
-    cost_to_alpha_ratio: float = 0.3  # 成本超过收益30%就跳过
+    min_alpha_threshold: float = 0.0001  # 最小边际收益0.01% (约100元)
+    cost_to_alpha_ratio: float = 0.5  # 成本超过收益50%就跳过
     skip_small_changes: bool = True
     min_weight_change: float = 0.005  # 权重变化小于0.5%跳过
 
@@ -371,8 +407,9 @@ class CostAlphaFilter:
             bucket = self._get_bucket_from_score(score, n_buckets=5)
             bucket_return = self._bucket_returns.get(bucket, 0.005)
             
-            # 边际收益 = bucket预期收益 * 目标权重
-            estimated_alpha = bucket_return * target_weight * total_equity
+            # 边际收益 = bucket预期收益 * 本次交易金额(weight_diff)
+            # 使用abs(weight_diff)而非target_weight，衡量本次交易的边际贡献
+            estimated_alpha = bucket_return * abs(weight_diff) * total_equity
             
             result.at[idx, 'estimated_cost'] = total_cost
             result.at[idx, 'estimated_alpha'] = estimated_alpha
@@ -407,6 +444,10 @@ class CostAlphaFilter:
         
         直接使用[0,1]范围的percentile值，按等分位划分
         """
+        # NaN检查：未知分数保守处理为最低bucket
+        if pd.isna(score):
+            return 1
+        
         # 假设score已经是[0,1]的percentile
         if 0 <= score <= 1:
             if score >= 0.8:
@@ -467,6 +508,8 @@ class PortfolioEnhancer:
     修复：
     1. buffer结果正确传递给smoother
     2. chain中每步结果正确流转
+    
+    可选集成市场状态检测，高风险时段自动降仓。
     """
     
     def __init__(
@@ -474,10 +517,29 @@ class PortfolioEnhancer:
         buffer_config: Optional[BufferConfig] = None,
         smoother_config: Optional[SmootherConfig] = None,
         cost_config: Optional[CostFilterConfig] = None,
+        regime_config: Optional[RegimeExposureConfig] = None,
     ):
         self.buffer = PositionBuffer(buffer_config)
         self.smoother = WeightSmoother(smoother_config)
         self.cost_filter = CostAlphaFilter(cost_config)
+        self.regime_config = regime_config or RegimeExposureConfig(enabled=False)
+        self._market_index_history: Optional[pd.Series] = None
+    
+    def set_market_index_history(self, history: pd.Series):
+        """设置市场指数历史数据用于状态检测"""
+        self._market_index_history = history
+    
+    def detect_regime(self, signal_date: pd.Timestamp) -> tuple[MarketRegime, dict]:
+        """检测当前市场状态"""
+        if not self.regime_config.enabled or self._market_index_history is None:
+            return MarketRegime.RANGING, {"reason": "disabled"}
+        
+        regime_cfg = BaseRegimeConfig(
+            short_window=self.regime_config.short_window,
+            long_window=self.regime_config.long_window,
+            volatility_window=self.regime_config.volatility_window,
+        )
+        return detect_market_regime(self._market_index_history, signal_date, regime_cfg)
     
     def enhance(
         self,
@@ -492,18 +554,32 @@ class PortfolioEnhancer:
         stamp_duty_bps: float = 10.0,
         slippage_bps: float = 5.0,
         min_trade_value: float = 2000.0,
+        signal_date: Optional[pd.Timestamp] = None,
     ) -> tuple[pd.DataFrame, dict]:
         """
         增强组合构建 (已修复版)
         
         流程：
-        1. 持仓缓冲区过滤 → buffered_weights
-        2. 权重平滑 → 使用buffered结果，不是原始target_weights
-        3. 成本-收益过滤
+        1. 市场状态检测 (可选)
+        2. 持仓缓冲区过滤 → buffered_weights
+        3. 权重平滑 → 使用buffered结果，不是原始target_weights
+        4. 成本-收益过滤
         
         Returns:
             (增强后的目标权重, 交易摘要)
         """
+        # Step 0: 市场状态检测
+        regime_diagnostics = {}
+        exposure_multiplier = 1.0
+        if self.regime_config.enabled and signal_date is not None:
+            regime, diagnostics = self.detect_regime(signal_date)
+            exposure_multiplier = self.regime_config.get_exposure(regime)
+            regime_diagnostics = {
+                'regime': regime.value,
+                'exposure_multiplier': exposure_multiplier,
+                **{k: float(v) for k, v in diagnostics.items() if not pd.isna(v)}
+            }
+        
         # Step 1: 持仓缓冲区
         buffered = self.buffer.apply(
             candidates,
@@ -511,9 +587,13 @@ class PortfolioEnhancer:
             execution_date
         )
         
-        # 记录缓冲保留了哪些股票
+        # 记录缓冲真实效果：只统计当前持仓中被缓冲逻辑保留/移除的股票，
+        # 不把整张候选池数量误报为"保留持仓"。
         buffered_symbols = set(buffered['symbol'].tolist()) if len(buffered) > 0 else set()
-        original_symbols = set(candidates['symbol'].tolist()) if len(candidates) > 0 else set()
+        current_symbols = set(current_positions.keys())
+        retained_current_symbols = buffered_symbols & current_symbols
+        candidate_symbols = set(candidates['symbol'].tolist()) if len(candidates) > 0 else set()
+        removed_current_symbols = current_symbols - candidate_symbols
         
         # 合并buffer结果到target_weights
         if 'is_holding' in buffered.columns and len(buffered) > 0:
@@ -532,6 +612,11 @@ class PortfolioEnhancer:
         else:
             target_weights = target_weights.copy()
         
+        # Step 1.5: 应用市场状态仓位调整
+        target_weights = target_weights.copy()
+        target_weights['target_weight'] = target_weights['target_weight'] * exposure_multiplier
+        target_weights['regime_exposure_multiplier'] = exposure_multiplier
+        
         # Step 2: 权重平滑 - 使用buffered后的target_weights
         smoothed = self.smoother.smooth(target_weights, execution_date)
         
@@ -549,8 +634,11 @@ class PortfolioEnhancer:
         )
         
         summary = self.cost_filter.get_trade_summary(filtered)
-        summary['buffered_retained'] = len(buffered_symbols)
-        summary['buffered_removed'] = len(original_symbols) - len(buffered_symbols)
+        summary['buffered_retained'] = len(retained_current_symbols)
+        summary['buffered_removed'] = len(removed_current_symbols)
+        summary['regime_exposure_multiplier'] = exposure_multiplier
+        if regime_diagnostics:
+            summary['regime'] = regime_diagnostics.get('regime', 'unknown')
         
         return filtered, summary
     

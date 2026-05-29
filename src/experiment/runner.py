@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 
+import numpy as np
 import pandas as pd
 
 from src.backtest.engine import run_backtest
@@ -24,7 +25,7 @@ from src.labels.definitions import default_label_registry
 from src.models.definitions import default_model_registry
 from src.ops.paths import ARTIFACT_RUNS_DIR, ensure_platform_dirs
 from src.portfolio.definitions import default_portfolio_registry
-from src.portfolio.enhancer import PortfolioEnhancer, BufferConfig, SmootherConfig, CostFilterConfig
+from src.portfolio.enhancer import PortfolioEnhancer, BufferConfig, SmootherConfig, CostFilterConfig, RegimeExposureConfig
 from src.portfolio.registry import PortfolioContext
 from src.signals.definitions import default_signal_registry
 from src.signals.registry import SignalContext
@@ -187,6 +188,7 @@ def run_experiment(config_path: str | Path) -> dict:
     enhancer_start = perf_counter()
     
     if spec.enhancer.enabled:
+        regime_overlay_enabled = bool(spec.overlay.regime_exposure_enabled or spec.portfolio.regime_detection)
         enhancer = PortfolioEnhancer(
             buffer_config=BufferConfig(
                 retain_threshold_rank=spec.enhancer.buffer_retain_threshold_rank,
@@ -200,12 +202,49 @@ def run_experiment(config_path: str | Path) -> dict:
                 min_alpha_threshold=spec.enhancer.cost_min_alpha_threshold,
                 cost_to_alpha_ratio=spec.enhancer.cost_cost_to_alpha_ratio,
             ),
+            regime_config=RegimeExposureConfig(
+                enabled=regime_overlay_enabled,
+                short_window=spec.portfolio.regime_short_window,
+                long_window=spec.portfolio.regime_long_window,
+                volatility_window=spec.portfolio.regime_volatility_window,
+                bull_exposure=spec.portfolio.regime_bull_exposure,
+                bear_exposure=spec.portfolio.regime_bear_exposure,
+                trending_exposure=spec.portfolio.regime_trending_exposure,
+                ranging_exposure=spec.portfolio.regime_ranging_exposure,
+            ),
         )
-        logger.info("Enhancer enabled: Buffer(retain_rank=%d,max=%.0f%%), Smooth(step=%.0f%%), CostFilter(alpha=%.3f)",
+        enhancer.cost_filter.set_bucket_returns({
+            1: 0.002,   # bucket 1: 0.2% expected return
+            2: 0.003,   # bucket 2: 0.3%
+            3: 0.004,   # bucket 3: 0.4%
+            4: 0.006,   # bucket 4: 0.6%
+            5: 0.010,   # bucket 5: 1.0%
+        })
+        
+        # Regime exposure is an overlay strategy, not execution enhancement.
+        # Keep it in this stage for backward compatibility, but require config
+        # documentation via spec.overlay before formal conclusions.
+        if regime_overlay_enabled:
+            # 尝试从universe_membership获取沪深300成分股，用其等权指数代表大盘
+            if '000300.SH' in daily_bar['symbol'].values:
+                idx_data = daily_bar[daily_bar['symbol'] == '000300.SH'][['trade_date', 'close']].copy()
+            else:
+                # 获取沪深300成分股列表
+                universe_stocks = universe_membership[universe_membership['trade_date'] == universe_membership['trade_date'].max()]['symbol'].unique()
+                idx_bars = daily_bar[daily_bar['symbol'].isin(universe_stocks)]
+                idx_data = idx_bars.groupby('trade_date').agg({'close': 'mean', 'volume': 'sum'}).reset_index()
+                idx_data['close'] = idx_data.groupby('trade_date')['close'].transform('mean')
+            
+            market_index = idx_data.set_index('trade_date')['close'].sort_index()
+            enhancer.set_market_index_history(market_index)
+            logger.info("Market index set for regime detection: %d dates", len(market_index))
+        
+        logger.info("Enhancer enabled: Buffer(retain_rank=%d,max=%.0f%%), Smooth(step=%.0f%%), CostFilter(alpha=%.3f), Regime(%s)",
                     spec.enhancer.buffer_retain_threshold_rank, 
                     spec.enhancer.buffer_max_retain_ratio * 100,
                     spec.enhancer.smoother_step_ratio * 100,
-                    spec.enhancer.cost_min_alpha_threshold)
+                    spec.enhancer.cost_min_alpha_threshold,
+                    "ON" if regime_overlay_enabled else "OFF")
     else:
         enhancer = None
         logger.info("Enhancer disabled by config")
@@ -231,6 +270,9 @@ def run_experiment(config_path: str | Path) -> dict:
         exec_date_ts = pd.Timestamp(exec_date)
         day_tw = portfolio_result.target_weights[portfolio_result.target_weights['execution_date'] == exec_date].copy()
         day_candidates = portfolio_result.filtered_candidates[portfolio_result.filtered_candidates['execution_date'] == exec_date_ts].copy()
+        
+        # 获取signal_date用于regime detection
+        signal_date = day_tw['signal_date'].iloc[0] if not day_tw.empty and 'signal_date' in day_tw.columns else exec_date_ts
         
         # 添加 rank 和 percentile 列 (基于 score)
         if 'rank' not in day_candidates.columns and 'score' in day_candidates.columns:
@@ -278,10 +320,11 @@ def run_experiment(config_path: str | Path) -> dict:
                 stamp_duty_bps=spec.backtest.stamp_duty_bps,
                 slippage_bps=spec.backtest.slippage_bps,
                 min_trade_value=spec.portfolio.min_trade_value,
+                signal_date=signal_date,
             )
             enhancement_summary['buffered_retained'] += summary.get('buffered_retained', 0)
             enhancement_summary['buffered_removed'] += summary.get('buffered_removed', 0)
-            enhancement_summary['filtered_trades'] += summary.get('filtered_trades', 0)
+            enhancement_summary['filtered_trades'] += summary.get('filtered_trades', summary.get('skipped_trades', 0))
         else:
             enhanced_tw = day_tw.copy()
         
@@ -471,7 +514,11 @@ def run_experiment(config_path: str | Path) -> dict:
             total_ret = nav_series.iloc[-1] / nav_series.iloc[0] - 1
             daily_returns = nav_series.pct_change().dropna()
             if len(daily_returns) > 0:
-                sharpe = (daily_returns.mean() * 252) / (daily_returns.std() * (252 ** 0.5))
+                ret_std = daily_returns.std()
+                if ret_std == 0 or np.isnan(ret_std):
+                    sharpe = 0.0
+                else:
+                    sharpe = (daily_returns.mean() * 252) / (ret_std * (252 ** 0.5))
             else:
                 sharpe = 0.0
             yearly_rows.append({
@@ -542,6 +589,105 @@ def run_experiment(config_path: str | Path) -> dict:
         feature_importance=model_result.feature_importance,
     )
     (run_dir / 'reports' / 'factor_diagnostics.md').write_text(evaluation_result.markdown, encoding='utf-8')
+    
+    # ========== Factor IC Monitoring ==========
+    logger.info("=" * 60)
+    logger.info("Saving Factor IC Monitoring Artifacts")
+    logger.info("=" * 60)
+    try:
+        from src.features.ic_monitor import RealizedICMonitor
+        
+        ic_monitor = RealizedICMonitor(
+            factor_names=spec.features.names,
+            label_horizon=spec.label.horizon if hasattr(spec.label, 'horizon') else 20,
+            label_name=spec.label.name,
+        )
+        
+        # Build feature panel from model_dataset (contains actual factor values)
+        # signal_scores only has trade_date/symbol/score, not factor values
+        available_factor_cols = [f for f in spec.features.names if f in model_dataset.columns]
+        if available_factor_cols:
+            feature_panel = model_dataset[['trade_date', 'symbol'] + available_factor_cols].drop_duplicates()
+            
+            label_cols = ['trade_date', 'symbol', spec.label.name]
+            available_label_cols = [c for c in label_cols if c in label_panel.columns]
+            label_panel_filtered = label_panel[available_label_cols].drop_duplicates()
+            
+            if not feature_panel.empty and not label_panel_filtered.empty:
+                rebalance_dates = sorted(feature_panel['trade_date'].unique())
+                logger.info("Running IC monitor over %d signal dates", len(rebalance_dates))
+                
+                # Update monitor with IC data - iterate through ALL dates
+                for rebal_date in rebalance_dates:
+                    ic_df = ic_monitor.update(rebal_date, feature_panel, label_panel_filtered)
+                
+                # Save IC monitoring artifacts
+                ic_history = ic_monitor.get_ic_history()
+                health_snapshot = ic_monitor.get_health_snapshot()
+                offline_factors = ic_monitor.get_offline_factors()
+                weights = ic_monitor.get_weights()
+                
+                if not ic_history.empty:
+                    ic_history.to_parquet(run_dir / 'features' / 'factor_ic_history.parquet', index=False)
+                    logger.info("Saved factor_ic_history.parquet: %d records", len(ic_history))
+                
+                if not health_snapshot.empty:
+                    health_snapshot.to_parquet(run_dir / 'features' / 'factor_health_snapshot.parquet', index=False)
+                    logger.info("Saved factor_health_snapshot.parquet: %d factors", len(health_snapshot))
+                
+                # Always generate decay report
+                decay_report = f"""# Factor Decay Report
+
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+Experiment: {spec.name}
+Registry Stage: {spec.model.registry_stage if hasattr(spec.model, 'registry_stage') else 'unknown'}
+
+## Summary
+- IC Records: {len(ic_history)}
+- Factors Monitored: {len(spec.features.names)}
+- Available Factor Columns: {len(available_factor_cols)}/{len(spec.features.names)}
+- Offline Factors: {len(offline_factors)}
+
+## Current Factor Weights
+"""
+                for factor, weight in weights.items():
+                    decay_report += f"- {factor}: {weight:.2f}\n"
+                
+                if offline_factors:
+                    decay_report += f"""
+## ⚠️ Offline Factors (需要替换)
+"""
+                    for factor in offline_factors:
+                        decay_report += f"- {factor}\n"
+                    decay_report += """
+## Recommendation
+Replace offline factors from backup pool. Current backup pool candidates:
+- backup status factors
+- research status factors with positive IC in validation
+"""
+                else:
+                    decay_report += """
+## Status: No offline factors detected
+All monitored factors are currently active or reduced (not fully offline).
+"""
+                
+                decay_report += f"""
+## Rules Applied
+- ic_below_minus_003: 立即下线
+- ic_consecutive_negative_5_obs: 进入观察
+- ic_consecutive_negative_10_obs: 降权50%
+- ic_consecutive_negative_15_obs: 下线
+
+## Note
+This report is generated from realized (lagged) IC calculations.
+IC can only be computed for signal dates where horizon+delay has passed.
+"""
+                (run_dir / 'reports' / 'factor_decay_report.md').write_text(decay_report, encoding='utf-8')
+                logger.info("Saved factor_decay_report.md (offline: %d)", len(offline_factors))
+        else:
+            logger.warning("No factor columns available in model_dataset for IC monitoring")
+    except Exception as e:
+        logger.warning("Failed to save IC monitoring artifacts: %s", e)
 
     selected_modules = {
         'model': {'name': spec.model.family, 'version': spec.model.version},

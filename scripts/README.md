@@ -1,5 +1,26 @@
 # Scripts 目录说明
 
+**⚠️ Agent注意**: scripts目录包含多种脚本，只有CLI实验入口能产出正式结论。详见 [docs/AGENT_WORKFLOW.md](../docs/AGENT_WORKFLOW.md)
+
+## 唯一正式实验入口
+
+```bash
+python -m src.cli experiment --config configs/experiments/<name>.yaml
+```
+
+## 废弃脚本 (禁止产出正式结论)
+
+| 脚本 | 状态 |
+|------|------|
+| `full_factor_ic_test.py` | ❌ 已归档 |
+| `strategy_discovery_v2.py` | ❌ 已归档 |
+| `verify_new_strategy.py` | ❌ 已归档 |
+| `run_full_factor_test.py` | ❌ 已归档 |
+
+归档位置: `scripts/archive/deprecated_label_contract/`
+
+---
+
 ## 快速使用
 
 ### 运行实验 (最常用)
@@ -45,13 +66,16 @@ python -m src.cli experiment --config configs/experiments/hs300_ridge_baseline.y
 
 ### 研究脚本 (Research)
 
-| 脚本 | 说明 | 状态 |
-|------|------|------|
-| `full_factor_ic_test.py` | 完整因子IC测试 (100因子) | 一次性 |
-| `strategy_discovery_v2.py` | 策略发现 v2 | 一次性 |
-| `walk_forward_ridge_support.py` | Ridge+Support OOS验证 | 一次性 |
-| `cost_sensitivity_analysis.py` | 成本敏感性分析 | 一次性 |
-| `multi_model_cost_comparison.py` | 多模型成本对比 | 一次性 |
+**⚠️ 已归档**: 以下脚本移至 `scripts/archive/deprecated_label_contract/`，标签口径与当前合同不一致，不能用于正式结论。
+
+| 脚本 | 状态 |
+|------|------|
+| `full_factor_ic_test.py` | ❌ 已归档 |
+| `strategy_discovery_v2.py` | ❌ 已归档 |
+| `verify_new_strategy.py` | ❌ 已归档 |
+| `run_full_factor_test.py` | ❌ 已归档 |
+| `batch_calculate_*.py` | ❌ 已归档 |
+| `quick_ic_test.py` | ❌ 已归档 |
 
 ### 验证工具 (Verification)
 
@@ -60,9 +84,10 @@ python -m src.cli experiment --config configs/experiments/hs300_ridge_baseline.y
 | `verify_alpha_004.py` | 验证alpha_004因子定义 |
 | `verify_enhancer_real.py` | 验证组合增强器 |
 | `verify_portfolio_enhancer.py` | 验证投资组合增强器 |
-| `verify_new_strategy.py` | 验证新策略 |
 | `calibrate_cost_filter.py` | 校准CostAlphaFilter |
 | `true_walk_forward_oos_v2.py` | 真实Walk-Forward OOS验证 |
+
+**⚠️ 已归档**: `verify_new_strategy.py` → `scripts/archive/deprecated_label_contract/`
 
 ### 可视化 (UI)
 

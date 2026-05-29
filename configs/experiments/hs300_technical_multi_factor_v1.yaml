@@ -1,0 +1,113 @@
+name: hs300_technical_multi_factor_v1
+description: >
+  技术多因子策略 - 价量与形态
+  
+  设计原则:
+  1. 多周期动量: 短/中/长期趋势确认
+  2. 价量背离: 价格与成交量关系
+  3. 技术形态: 支撑阻力突破
+  4. 趋势强度: ADX等指标
+  
+  因子选择 (7个价量维度):
+  - 短期动量: momentum_20d
+  - 中期动量: momentum_60d
+  - 长期动量: momentum_120d
+  - 趋势强度: adx_14
+  - 价量背离: relative_volume_20d
+  - 位置强度: close_to_high250
+  - 波动率: volatility_20d
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2019-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: technical_multi_factor
+  version: v1
+  names:
+    - momentum_20d
+    - momentum_60d
+    - momentum_120d
+    - adx_14
+    - relative_volume_20d
+    - close_to_high250
+    - volatility_20d
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: ridge_regression
+  version: v1
+  registry_stage: research
+  fallback_model: momentum_60d_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+  params:
+    alpha: 1.0
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  cash_buffer: 0.0
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  regime_detection: true
+  regime_short_window: 20
+  regime_long_window: 60
+  regime_volatility_window: 20
+  regime_bull_exposure: 1.0
+  regime_bear_exposure: 0.0
+  regime_trending_exposure: 1.0
+  regime_ranging_exposure: 0.3
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2019-01-02'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: true
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.0001
+  cost_cost_to_alpha_ratio: 0.5
+
+overlay:
+  enabled: true
+  regime_exposure_enabled: true
+  hypothesis_id: "technical_multi_factor_hypothesis_v1"
+  data_mined: true
+  frozen_after: null
+  notes: >
+    纯技术多因子 + 市场择时overlay

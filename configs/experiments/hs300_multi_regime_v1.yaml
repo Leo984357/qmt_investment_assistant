@@ -1,0 +1,105 @@
+name: hs300_multi_regime_v1
+description: >
+  多Regime因子套件策略
+  ========================
+  
+  核心理念: 每个Regime使用最有效的因子
+  
+  Regime判断 (基于MA关系):
+  - 牛市 (Bull): price > MA20 > MA60
+  - 熊市 (Bear): price < MA20 < MA60  
+  - 震荡 (Ranging): 其他
+  
+  因子套件 (按IC排序选择):
+  - 牛市因子: mom250, alpha_006, roe, revenue_growth
+  - 熊市因子: roe, earnings_yield, cash_ratio, asset_turnover
+  - 震荡因子: rev20, roe, close_to_high250, cash_ratio
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2019-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: multi_regime
+  version: v1
+  names:
+    - mom250
+    - alpha_006
+    - roe
+    - revenue_growth
+    - earnings_yield
+    - cash_ratio
+    - asset_turnover
+    - rev20
+    - close_to_high250
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: simple_average
+  version: v1
+  registry_stage: research
+  fallback_model: roe_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+signal:
+  name: cross_sectional_score
+  version: v1
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  regime_detection: true
+  regime_short_window: 20
+  regime_long_window: 60
+  regime_volatility_window: 20
+  regime_bull_exposure: 1.0
+  regime_bear_exposure: 0.0
+  regime_trending_exposure: 1.0
+  regime_ranging_exposure: 0.3
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+  cash_buffer: 0.0
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2019-01-02'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  params:
+    quantiles: 5
+enhancer:
+  enabled: true
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.0001
+  cost_cost_to_alpha_ratio: 0.5
+overlay:
+  enabled: true
+  regime_exposure_enabled: true
+  hypothesis_id: "multi_regime_factor_v1"
+  data_mined: true

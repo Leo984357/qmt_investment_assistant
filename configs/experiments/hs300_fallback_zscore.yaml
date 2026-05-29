@@ -1,0 +1,79 @@
+name: hs300_fallback_zscore
+description: >
+  使用fallback模型直接输出earnings_yield zscore
+  避免Ridge模型的过拟合问题
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2022-09-01'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: single_factor
+  version: v1
+  names:
+    - earnings_yield
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+  financial_data_enabled: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: ridge_regression
+  version: v1
+  registry_stage: production
+  fallback_model: earnings_yield_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 1000
+  fallback_feature: earnings_yield
+  params:
+    alpha: 1.0
+signal:
+  name: cross_sectional_score
+  version: v1
+  params: {}
+portfolio:
+  top_n: 15
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.067
+  cash_buffer: 0.0
+  min_trade_value: 2000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  risk_model: none
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+backtest:
+  initial_cash: 250000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2022-09-01'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+  version: v1
+  params:
+    quantiles: 5
+enhancer:
+  enabled: false
+  buffer_retain_threshold_rank: 50
+  buffer_max_retain_ratio: 0.6
+  smoother_step_ratio: 0.5
+  smoother_min_change_threshold: 0.001
+  cost_min_alpha_threshold: 0.002
+  cost_cost_to_alpha_ratio: 0.3

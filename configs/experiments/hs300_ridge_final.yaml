@@ -4,14 +4,11 @@ description: >
   
   研究发现:
   1. Ridge回归优于LightGBM (更高IC, 更低换手)
-  2. 添加momentum因子提升IC 33%
-  3. 财务因子(9) + momentum因子(2) = 11因子
+  2. 添加momentum因子提升IC
+  3. 财务因子(8) + momentum因子(1) = 9因子
   
-  性能:
-  - IC: 0.106
-  - IC IR: 0.615
-  - Sharpe: 1.28
-  - 换手率: 3.18%
+  注意: revenue_growth 已移除 (observe状态, IC偏弱)
+  enhancer: 已关闭 (小资金(<25万)换手自然低, 不需要额外过滤)
 
 data:
   source: baostock_ashare
@@ -25,20 +22,19 @@ data:
   price_adjust: qfq
 features:
   set_name: financial_with_momentum
-  version: v1
+  version: v2
   names:
-    # 财务因子 (9个) - 盈利/价值/成长
-    - roe
-    - earnings_yield
-    - operating_margin
-    - equity_growth
-    - ocf_per_share
-    - revenue_growth
-    - asset_turnover
-    - gross_margin
-    - cash_ratio
-    # Momentum因子 - Support因子 (已验证IC为正)
-    - mom120
+    # 财务因子 (8个) - Core + Backup
+    - roe                    # CORE, IC=0.041
+    - earnings_yield         # CORE, IC=0.048
+    - operating_margin       # CORE, IC=0.027
+    - ocf_per_share         # CORE, IC=0.032
+    - equity_growth         # BACKUP, IC=0.019
+    - asset_turnover        # BACKUP, IC=0.018
+    - gross_margin          # BACKUP, IC=0.018
+    - cash_ratio            # BACKUP, IC=0.010
+    # Momentum因子
+    - mom120                # BACKUP, IC=0.010
   winsorize_limits: [0.01, 0.99]
   zscore: true
   fill_missing: true
@@ -91,7 +87,7 @@ evaluation:
   params:
     quantiles: 5
 enhancer:
-  enabled: true
+  enabled: false
   buffer_retain_threshold_rank: 50
   buffer_max_retain_ratio: 0.6
   smoother_step_ratio: 0.5

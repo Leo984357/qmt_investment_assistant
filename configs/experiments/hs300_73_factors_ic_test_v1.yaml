@@ -1,0 +1,135 @@
+name: hs300_73_factors_ic_test_v1
+description: >
+  73个可用因子全量IC测试
+  包含所有类别: financial, momentum, worldquant, technical, reversal, liquidity, volatility, pattern
+
+data:
+  source: baostock_ashare
+  snapshot_id: hs300_baostock_snapshot_v1
+  start_date: '2019-01-02'
+  end_date: '2026-03-28'
+  universe_name: HS300
+  universe_mode: point_in_time
+  incremental: true
+  universe_refresh_frequency_days: 5
+  price_adjust: qfq
+features:
+  set_name: ic_test_73
+  version: v1
+  names:
+    - roe
+    - roa
+    - gross_margin
+    - operating_margin
+    - net_margin
+    - asset_turnover
+    - inventory_turnover
+    - cash_ratio
+    - current_ratio
+    - debt_to_equity
+    - pe_ratio
+    - pb_ratio
+    - earnings_yield
+    - book_to_price
+    - ocf_per_share
+    - roe_weighted
+    - total_roa
+    - mom250
+    - mom120
+    - mom90
+    - momentum_6m
+    - acceleration_20
+    - alpha_001
+    - alpha_002
+    - alpha_003
+    - alpha_006
+    - alpha_011
+    - alpha_012
+    - alpha_013
+    - alpha_014
+    - alpha_015
+    - alpha_016
+    - rsi14
+    - rsi6
+    - macd
+    - adx14
+    - cci14
+    - williams_r
+    - stoch_k
+    - mfi14
+    - atr14
+    - tsi
+    - rev20
+    - short_term_reversal_5d
+    - medium_reversal
+    - intraday_reversal
+    - drawdown_sentiment
+    - amihud_illiq_20d
+    - amihud_illiq_5d
+    - amihud_illiq_60d
+    - vol_ratio_5_20
+    - vol_ratio_10_60
+    - turnover_rate_20d
+    - amount_growth20
+    - vol_growth20
+    - relative_volume_20d
+    - vol_realized_20d
+    - vol_realized_60d
+    - volatility_20d
+    - volatility_60d
+    - return_std_20
+    - return_std_60
+    - downside_volatility
+    - close_to_high250
+    - close_to_high120
+    - close_to_high60
+    - close_to_low250
+    - ma_diff_5_20
+    - ma_diff_10_60
+    - return_skew20
+    - return_kurt20
+    - return_skew60
+    - return_kurt60
+  winsorize_limits: [0.01, 0.99]
+  zscore: true
+  fill_missing: true
+label:
+  name: fwd_return_20d
+  horizon: 20
+model:
+  family: simple_average
+  version: v1
+  registry_stage: research
+  fallback_model: roe_zscore
+  train_window_days: 500
+  valid_window_days: 0
+  min_train_samples: 100
+signal:
+  name: cross_sectional_score
+portfolio:
+  top_n: 40
+  weighting: equal
+  gross_exposure: 1.0
+  defensive_gross: 0.50
+  max_single_weight: 0.04
+  min_trade_value: 3000
+  market_filter_lookback: 60
+  market_filter_threshold: 0.0
+  candidate_filter_mode: strict_ashare
+  constructor: qmt_topn_equal_weight
+  cash_buffer: 0.0
+backtest:
+  initial_cash: 1000000
+  lot_size: 100
+  commission_bps: 0.75
+  stamp_duty_bps: 10
+  slippage_bps: 5
+  rebalance_frequency_days: 10
+  trade_delay_days: 1
+  anchor_mode: fixed
+  anchor_date: '2019-01-02'
+  execution_constraint_mode: strict_ashare
+evaluation:
+  suite: basic_factor_diagnostics
+enhancer:
+  enabled: false
