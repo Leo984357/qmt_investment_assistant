@@ -260,6 +260,7 @@ model:
 
 ## 相关文档
 
+- `METHODOLOGY.md` - 完整方法论文档（研究哲学、流水线架构、因子系统、评估门控）
 - `AGENTS.md` - Agent指令 (详细研究流程、因子健康检查、Walk-Forward验证)
 - `configs/experiments/README.md` - 实验配置详解
 - `scripts/README.md` - 脚本使用说明
