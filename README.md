@@ -1,5 +1,9 @@
 # QMT Investment Assistant
 
+[![CI](https://img.shields.io/github/actions/workflow/status/Leo984357/qmt_investment_assistant/ci.yml?branch=main&label=CI&logo=github&style=flat-square)](https://github.com/Leo984357/qmt_investment_assistant/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white&style=flat-square)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+
 > HS300 多因子选股系统 · LightGBM / Ridge 模型 · QMT 实盘对接
 
 本地优先、可复现、可审计的 A 股量化研究系统。支持从因子研究、模型训练、回测验证到实盘下单的完整流程。

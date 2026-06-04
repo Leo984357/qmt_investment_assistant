@@ -71,6 +71,10 @@ select = ["E", "F", "I", "N", "W", "UP"]
 "__init__.py" = ["F401", "F403"]
 "tests/*" = ["N"]
 
+[tool.coverage.run]
+source = ["src"]
+relative_files = true
+
 [tool.mypy]
 python_version = "3.12"
 strict = false
