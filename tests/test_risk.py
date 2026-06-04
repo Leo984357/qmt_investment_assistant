@@ -25,10 +25,11 @@ class TestRiskConstraintEngine:
         assert engine.constraints.max_single_weight == 0.1
 
     def test_apply_constraints_clamps_single_weight(self):
-        engine = RiskConstraintEngine(RiskConstraints(max_single_weight=0.1))
+        engine = RiskConstraintEngine(RiskConstraints(max_single_weight=0.1, min_positions=1))
         weights = pd.DataFrame({
             'symbol': ['A', 'B', 'C'],
             'target_weight': [0.15, 0.05, 0.05],
+            'gross_exposure': [0.25, 0.25, 0.25],
         })
         result, checks = engine.apply_constraints(
             target_weights=weights,
@@ -40,10 +41,11 @@ class TestRiskConstraintEngine:
         assert any(not c.passed for c in checks if c.check_name == 'max_single_weight')
 
     def test_apply_constraints_passes_within_limits(self):
-        engine = RiskConstraintEngine(RiskConstraints(max_single_weight=0.2))
+        engine = RiskConstraintEngine(RiskConstraints(max_single_weight=0.2, min_positions=1))
         weights = pd.DataFrame({
             'symbol': ['A', 'B'],
             'target_weight': [0.1, 0.1],
+            'gross_exposure': [0.2, 0.2],
         })
         result, checks = engine.apply_constraints(
             target_weights=weights,

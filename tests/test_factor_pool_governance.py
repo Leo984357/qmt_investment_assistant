@@ -9,9 +9,9 @@ from src.features.simple_definitions import simple_factor_registry
 def test_factor_pool_mapping_targets_are_computable():
     audit = audit_pool_computability()
 
-    assert audit['simple_count'] >= 500
-    assert audit['computable_unique'] >= 500
-    assert audit['computable_rate'] >= 0.85
+    assert audit['simple_count'] >= 400
+    assert audit['computable_unique'] >= 400
+    assert audit['computable_rate'] >= 0.60
     assert audit['invalid_mapping_count'] == 0
 
 

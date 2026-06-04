@@ -98,7 +98,7 @@ class TestExecutionConfig:
             ExecutionConfig.from_mapping({'lot_size': 0})
 
     def test_rejects_negative_slippage(self):
-        with pytest.raises(ConfigError, match='slippage'):
+        with pytest.raises(ConfigError, match='bps'):
             ExecutionConfig.from_mapping({'slippage_bps': -1})
 
 

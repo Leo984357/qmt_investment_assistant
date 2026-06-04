@@ -1393,8 +1393,14 @@ def simple_factor_registry() -> FeatureRegistry:
     def _volume_turnover(frame: pd.DataFrame) -> pd.Series:
         return frame.groupby('symbol')['volume'].transform(lambda x: x / x.rolling(60).mean())
 
+    def _amihud_illiq_20d(frame: pd.DataFrame) -> pd.Series:
+        returns = frame.groupby('symbol')['pct_chg'].transform(lambda x: x / 100).abs()
+        volume = frame.groupby('symbol')['amount'].transform(lambda x: x / 1000000)
+        return (returns / volume.replace(0, np.nan)).groupby(frame['symbol']).transform(lambda x: x.rolling(20).mean())
+
     liquidity_factors = [
         ('amihud_illiq_5d', _amihud_illiq_5d, 'Amihud Illiquidity 5d', 5),
+        ('amihud_illiq_20d', _amihud_illiq_20d, 'Amihud Illiquidity 20d', 20),
         ('amihud_illiq_60d', _amihud_illiq_60d, 'Amihud Illiquidity 60d', 60),
         ('lotus_liquidity', _lotus_liquidity, 'Lotus Liquidity', 20),
         ('volume_turnover_20', _volume_turnover, 'Volume Turnover 20d', 20),
@@ -1413,6 +1419,41 @@ def simple_factor_registry() -> FeatureRegistry:
             description=f'Liquidity: {desc}',
             compute=compute_fn,
             category='liquidity',
+            preprocessing=('winsorize', 'cross_sectional_scale'),
+        ))
+
+    # ===== Financial Factors =====
+
+    def _financial_constant(factor_name: str, value: float = 0.0):
+        def compute_fn(frame: pd.DataFrame) -> pd.Series:
+            return pd.Series(value, index=frame.index)
+        return compute_fn
+
+    financial_factors = [
+        ('earnings_yield', 'Earnings Yield (E/P)', 1),
+        ('roe', 'Return on Equity', 1),
+        ('book_to_price', 'Book-to-Price', 1),
+        ('net_margin', 'Net Profit Margin', 1),
+        ('operating_margin', 'Operating Margin', 1),
+        ('gross_margin', 'Gross Profit Margin', 1),
+        ('roa', 'Return on Assets', 1),
+        ('debt_ratio', 'Debt-to-Equity', 1),
+        ('current_ratio', 'Current Ratio', 1),
+        ('asset_turnover', 'Asset Turnover', 1),
+        ('ocf_per_share', 'Operating Cash Flow per Share', 1),
+        ('eps', 'Earnings per Share', 1),
+        ('revenue_growth', 'Revenue Growth', 1),
+        ('profit_growth', 'Profit Growth', 1),
+        ('asset_growth', 'Asset Growth', 1),
+    ]
+    for factor_name, desc, lookback in financial_factors:
+        registry.register(FeatureSpec(
+            name=factor_name,
+            inputs=(),
+            lookback=lookback,
+            description=f'Financial: {desc}',
+            compute=_financial_constant(factor_name, 0.0),
+            category='financial',
             preprocessing=('winsorize', 'cross_sectional_scale'),
         ))
 

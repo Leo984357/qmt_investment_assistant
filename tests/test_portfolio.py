@@ -29,7 +29,7 @@ class TestActiveGrossExposure:
 
     def test_mid_exposure_when_below_short_ma_above_long_ma(self):
         dates = pd.date_range('2024-01-01', periods=200, freq='D')
-        values = np.concatenate([np.linspace(100, 110, 100), np.linspace(109, 105, 100)])
+        values = np.concatenate([np.linspace(100, 200, 140), np.linspace(199, 190, 60)])
         market = pd.Series(values, index=dates)
         result = _active_gross_exposure(
             signal_date=dates[-1],
