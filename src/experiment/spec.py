@@ -280,52 +280,52 @@ def _validate_against_contract(spec_dict: dict, contract: dict) -> list[str]:
     Returns list of violations (empty = valid).
     """
     violations = []
-    
+
     if not contract:
         return violations
-    
+
     # Check universe
     if 'universe' in contract:
         expected_universe = contract['universe'].get('name')
         if expected_universe and spec_dict.get('data', {}).get('universe_name') != expected_universe:
             violations.append(f"Universe mismatch: expected {expected_universe}, got {spec_dict.get('data', {}).get('universe_name')}")
-    
+
     # Check label
     if 'label' in contract:
         expected_label = contract['label'].get('name')
         if expected_label and spec_dict.get('label', {}).get('name') != expected_label:
             violations.append(f"Label mismatch: expected {expected_label}, got {spec_dict.get('label', {}).get('name')}")
-        
+
         expected_horizon = contract['label'].get('horizon')
         if expected_horizon and spec_dict.get('label', {}).get('horizon') != expected_horizon:
             violations.append(f"Label horizon mismatch: expected {expected_horizon}, got {spec_dict.get('label', {}).get('horizon')}")
-    
+
     # Check rebalance frequency
     if 'frequency' in contract:
         expected_rebalance = contract['frequency'].get('rebalance_days')
         if expected_rebalance and spec_dict.get('backtest', {}).get('rebalance_frequency_days') != expected_rebalance:
             violations.append(f"Rebalance frequency mismatch: expected {expected_rebalance}, got {spec_dict.get('backtest', {}).get('rebalance_frequency_days')}")
-    
+
     # Check cost parameters
     if 'cost' in contract:
         expected_commission = contract['cost'].get('commission_bps')
         if expected_commission and spec_dict.get('backtest', {}).get('commission_bps') != expected_commission:
             violations.append(f"Commission mismatch: expected {expected_commission}bps, got {spec_dict.get('backtest', {}).get('commission_bps')}bps")
-        
+
         expected_stamp = contract['cost'].get('stamp_duty_bps')
         if expected_stamp and spec_dict.get('backtest', {}).get('stamp_duty_bps') != expected_stamp:
             violations.append(f"Stamp duty mismatch: expected {expected_stamp}bps, got {spec_dict.get('backtest', {}).get('stamp_duty_bps')}bps")
-    
+
     # Check walk-forward
     if 'walk_forward' in contract:
         expected_train = contract['walk_forward'].get('train_window_days')
         if expected_train and spec_dict.get('model', {}).get('train_window_days') != expected_train:
             violations.append(f"Train window mismatch: expected {expected_train}, got {spec_dict.get('model', {}).get('train_window_days')}")
-        
+
         expected_test = contract['walk_forward'].get('test_window_days')
         if expected_test and spec_dict.get('model', {}).get('test_window_days') != expected_test:
             violations.append(f"Test window mismatch: expected {expected_test}, got {spec_dict.get('model', {}).get('test_window_days')}")
-    
+
     return violations
 
 
@@ -363,13 +363,13 @@ def _validate_factors(spec_dict: dict, allow_rejected: bool = False, registry_st
     """
     violations = []
     features = spec_dict.get('features', {}).get('names', [])
-    
+
     # Validate registry_stage
     valid_stages = {'production', 'research', 'diagnostic'}
     if registry_stage not in valid_stages:
         violations.append(f"Invalid registry_stage: {registry_stage}. Must be one of {valid_stages}")
         return violations
-    
+
     # Research stage: only warn, don't block
     if registry_stage == 'research':
         if rejected_found := [f for f in features if f in REJECTED_FACTORS]:
@@ -378,23 +378,23 @@ def _validate_factors(spec_dict: dict, allow_rejected: bool = False, registry_st
                 f"Results are for research only, not formal conclusions."
             )
         return violations
-    
+
     # 1. Check rejected list for production/diagnostic
     rejected_found = [f for f in features if f in REJECTED_FACTORS]
-    
+
     if rejected_found and not allow_rejected:
         violations.append(
             f"Rejected factors found: {rejected_found}. "
             f"Set allow_rejected_factors: true in experiment config to bypass (diagnostic only)."
         )
-    
+
     # 2. Check production + allow_rejected combo
     if registry_stage == 'production' and allow_rejected:
         violations.append(
-            f"Production config cannot have allow_rejected_factors: true. "
-            f"Move rejected factors to diagnostic configs."
+            "Production config cannot have allow_rejected_factors: true. "
+            "Move rejected factors to diagnostic configs."
         )
-    
+
     # 3. Production factors must be in the catalog. Unknown factors can be
     # explored in research/diagnostic, but cannot support formal conclusions.
     if registry_stage == 'production':
@@ -404,13 +404,13 @@ def _validate_factors(spec_dict: dict, allow_rejected: bool = False, registry_st
             profile = catalog.get(f)
             if profile is None:
                 unknown_factors.append(f)
-        
+
         if unknown_factors:
             violations.append(
                 f"Unknown factors (not in catalog): {unknown_factors}. "
                 f"Add to src/features/factor_catalog.py or keep the config in research/diagnostic stage."
             )
-    
+
     return violations
 
 
@@ -595,7 +595,7 @@ def load_experiment_spec(
             defaults = _deep_merge(defaults, yaml.safe_load(default_path.read_text(encoding='utf-8')) or {})
     raw = yaml.safe_load(experiment_path.read_text(encoding='utf-8')) or {}
     resolved = _deep_merge(defaults, raw)
-    
+
     # Patch resolved with ModelSpec defaults before validation
     # This ensures validation sees defaults, not raw None/missing values
     model_defaults = {
@@ -605,7 +605,7 @@ def load_experiment_spec(
     for key, default_val in model_defaults.items():
         if resolved.get('model', {}).get(key) is None:
             resolved.setdefault('model', {})[key] = default_val
-    
+
     # Validate against research contract
     if validate_contract:
         contract = _load_research_contract()
@@ -615,7 +615,7 @@ def load_experiment_spec(
                 f"Experiment '{resolved.get('name', path)}' violates research contract:\n" +
                 "\n".join(f"  - {v}" for v in violations)
             )
-    
+
     # Validate factor names against rejected list and catalog
     registry_stage = resolved.get('model', {}).get('registry_stage', 'production')
     allow_from_config = bool(allow_rejected_factors or resolved.get('allow_rejected_factors', False))
@@ -648,7 +648,7 @@ def load_experiment_spec(
             f"Experiment '{resolved.get('name', path)}' violates professional research controls:\n" +
             "\n".join(f"  - {v}" for v in professional_control_violations)
         )
-    
+
     model_section = dict(resolved['model'])
     signal_section = dict(resolved.get('signal', {'name': 'cross_sectional_score', 'version': 'v1', 'params': {}}))
     evaluation_section = dict(resolved.get('evaluation', {'suite': 'basic_factor_diagnostics', 'version': 'v1', 'params': {}}))

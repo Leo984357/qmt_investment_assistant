@@ -18,8 +18,8 @@ Barra风格因子库 - Barra Risk Model标准因子
  12. Country/Industry - 国家/行业
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -66,7 +66,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=1,
         data_requirement=["total_assets"],
     ),
-    
+
     # ===== Value因子 =====
     BarraStyleSpec(
         name="book_to_price",
@@ -128,7 +128,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=1,
         data_requirement=["consensus_earnings", "market_cap"],
     ),
-    
+
     # ===== Growth因子 =====
     BarraStyleSpec(
         name="earnings_growth",
@@ -180,7 +180,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=1,
         data_requirement=["consensus_forecast"],
     ),
-    
+
     # ===== Profitability因子 =====
     BarraStyleSpec(
         name="roe",
@@ -272,7 +272,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=1,
         data_requirement=["net_income", "revenue"],
     ),
-    
+
     # ===== Leverage因子 =====
     BarraStyleSpec(
         name="market_leverage",
@@ -334,7 +334,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=1,
         data_requirement=["total_debt", "cash", "ebitda"],
     ),
-    
+
     # ===== Liquidity因子 =====
     BarraStyleSpec(
         name="amihud_illiquidity",
@@ -406,7 +406,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=21,
         data_requirement=["intraday_prices", "trade_data"],
     ),
-    
+
     # ===== Volatility因子 =====
     BarraStyleSpec(
         name="residual_volatility",
@@ -468,7 +468,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=252,
         data_requirement=["daily_returns"],
     ),
-    
+
     # ===== Momentum因子 =====
     BarraStyleSpec(
         name="momentum_12_1",
@@ -520,7 +520,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=1,
         data_requirement=["daily_returns"],
     ),
-    
+
     # ===== Quality (Barra使用单独的Quality因子组) =====
     BarraStyleSpec(
         name="earnings_quality",
@@ -552,7 +552,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=1,
         data_requirement=["cash_flow", "total_assets"],
     ),
-    
+
     # ===== Sentiment (Barra Extended) =====
     BarraStyleSpec(
         name="short_term_reversal",
@@ -594,7 +594,7 @@ BARRA_STYLE_FACTORS = [
         short_lookback=1,
         data_requirement=["actual_earnings", "consensus_forecast", "price"],
     ),
-    
+
     # ===== Country/ESG =====
     BarraStyleSpec(
         name="esg_combined",
@@ -634,19 +634,19 @@ def print_barra_factor_summary():
     print("=" * 100)
     print("Barra风格因子库汇总")
     print("=" * 100)
-    
+
     categories = {}
     for f in BARRA_STYLE_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items()):
         print(f"\n【{cat.upper()}】{len(factors)}个因子")
         for f in factors:
             print(f"  {f.name:<30} ({f.barra_name})")
             print(f"    公式: {f.formula}")
-    
+
     print(f"\n总计: {len(BARRA_STYLE_FACTORS)}个Barra风格因子")
 
 

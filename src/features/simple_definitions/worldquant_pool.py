@@ -669,12 +669,12 @@ def _worldquant_alpha_009(frame: pd.DataFrame) -> pd.Series:
     delta_close = frame.groupby('symbol')['close'].diff()
     ts_min = delta_close.groupby(frame['symbol']).transform(lambda x: x.rolling(5).min())
     ts_max = delta_close.groupby(frame['symbol']).transform(lambda x: x.rolling(5).max())
-    
+
     result = delta_close.copy()
     mask_pos = ts_min > 0
     mask_neg = ts_max < 0
-    
-    result = np.where(mask_pos, delta_close, 
+
+    result = np.where(mask_pos, delta_close,
                      np.where(mask_neg, delta_close, -delta_close))
     return pd.Series(result, index=frame.index)
 
@@ -683,11 +683,11 @@ def _worldquant_alpha_010(frame: pd.DataFrame) -> pd.Series:
     delta_close = frame.groupby('symbol')['close'].diff()
     ts_min = delta_close.groupby(frame['symbol']).transform(lambda x: x.rolling(4).min())
     ts_max = delta_close.groupby(frame['symbol']).transform(lambda x: x.rolling(4).max())
-    
+
     result = delta_close.copy()
     mask_pos = ts_min > 0
     mask_neg = ts_max < 0
-    
+
     result = np.where(mask_pos, delta_close,
                      np.where(mask_neg, delta_close, -delta_close))
     return pd.Series(result, index=frame.index)

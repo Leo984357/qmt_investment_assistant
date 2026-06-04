@@ -20,10 +20,9 @@ Usage:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List, Dict, Callable
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -37,13 +36,13 @@ class WalkForwardConfig:
     step_days: int = 30
     min_train_samples: int = 100
     n_jobs: int = 1
-    
+
     # 成本参数
     commission_bps: float = 0.75
     stamp_duty_bps: float = 10.0
     slippage_bps: float = 5.0
     min_trade_value: float = 2000.0
-    
+
     # 组合参数
     top_n: int = 15
     rebalance_days: int = 10
@@ -56,27 +55,27 @@ class WindowResult:
     train_end: datetime
     test_start: datetime
     test_end: datetime
-    
+
     # IC指标
     rank_ic: float
     rank_ic_mean: float
     rank_ic_std: float
     rank_ic_ir: float
-    
+
     # 组合收益
     portfolio_return: float
     long_return: float
     short_return: float
     long_short_return: float
-    
+
     # 成本
     turnover: float
     estimated_cost: float
-    
+
     # 样本数
     train_samples: int
     test_samples: int
-    
+
     # 市场状态
     market_return: float
     is_bull: bool = False
@@ -86,32 +85,32 @@ class WindowResult:
 @dataclass
 class WalkForwardReport:
     """Walk-Forward完整报告"""
-    results: List[WindowResult] = field(default_factory=list)
-    
+    results: list[WindowResult] = field(default_factory=list)
+
     # 聚合指标
     mean_return: float = 0.0
     std_return: float = 0.0
     sharpe: float = 0.0
     worst_return: float = 0.0
     best_return: float = 0.0
-    
+
     # IC聚合
     mean_rank_ic: float = 0.0
     mean_rank_ic_ir: float = 0.0
-    
+
     # 成本聚合
     mean_turnover: float = 0.0
     total_estimated_cost: float = 0.0
-    
+
     # Regime分析
     bull_return: float = 0.0
     bear_return: float = 0.0
     bull_count: int = 0
     bear_count: int = 0
-    
+
     # IS/OOS比
     is_oos_ratio: float = 0.0
-    
+
     def to_summary(self) -> dict:
         """转dict摘要"""
         return {
@@ -126,7 +125,7 @@ class WalkForwardReport:
             'Bear Return': f"{self.bear_return:.2%}" if self.bear_count > 0 else "N/A",
             'IS/OOS Ratio': f"{self.is_oos_ratio:.1f}",
         }
-    
+
     def to_dataframe(self) -> pd.DataFrame:
         """转DataFrame"""
         rows = []
@@ -152,20 +151,20 @@ class WalkForwardValidator:
     
     不使用随机数，每个窗口真实训练→预测→建仓→统计
     """
-    
-    def __init__(self, config: Optional[WalkForwardConfig] = None):
+
+    def __init__(self, config: WalkForwardConfig | None = None):
         self.config = config or WalkForwardConfig()
-        self.results: List[WindowResult] = []
-    
+        self.results: list[WindowResult] = []
+
     def run(
         self,
         data: pd.DataFrame,
-        factor_cols: List[str],
+        factor_cols: list[str],
         label_col: str,
         date_col: str = 'trade_date',
         symbol_col: str = 'symbol',
         price_col: str = 'close',
-        model_factory: Optional[Callable] = None,
+        model_factory: Callable | None = None,
     ) -> WalkForwardReport:
         """
         运行Walk-Forward验证
@@ -183,52 +182,52 @@ class WalkForwardValidator:
             WalkForwardReport: 验证报告
         """
         config = self.config
-        
+
         # 准备数据
         data = data.copy()
         data[date_col] = pd.to_datetime(data[date_col])
         data = data.sort_values([date_col, symbol_col])
-        
+
         # 获取所有交易日
         dates = sorted(data[date_col].unique())
-        
+
         # 生成窗口
         windows = self._generate_windows(dates)
-        
+
         print(f"Walk-Forward: {len(windows)} 个窗口")
         print(f"  Train: {config.train_window_days}d, Test: {config.test_window_days}d, Step: {config.step_days}d")
-        
+
         self.results = []
-        
+
         for i, (train_end, test_start, test_end) in enumerate(windows):
             # 分割数据
             train_data = data[data[date_col] <= train_end].copy()
             test_data = data[(data[date_col] >= test_start) & (data[date_col] <= test_end)].copy()
-            
+
             if len(train_data) < config.min_train_samples:
                 continue
-            
+
             # 训练模型
             model = self._train_model(train_data, factor_cols, label_col)
-            
+
             # 在测试集预测
             predictions = self._predict(test_data, factor_cols, model)
-            
+
             if predictions is None or len(predictions) == 0:
                 continue
-            
+
             # 计算IC
             ic_result = self._calculate_ic(predictions, label_col)
-            
+
             # 构建组合并计算收益
             portfolio_result = self._build_portfolio(
-                predictions, test_data, factor_cols, label_col, 
+                predictions, test_data, factor_cols, label_col,
                 date_col, symbol_col, price_col
             )
-            
+
             # 确定市场状态
             market_return = test_data.groupby(date_col)[price_col].last().pct_change().sum()
-            
+
             window_result = WindowResult(
                 train_start=train_data[date_col].min(),
                 train_end=train_end,
@@ -250,84 +249,84 @@ class WalkForwardValidator:
                 is_bull=market_return > 0,
                 is_bear=market_return < -0.05,
             )
-            
+
             self.results.append(window_result)
-            
+
             if (i + 1) % 5 == 0:
                 print(f"  Window {i+1}/{len(windows)}: IC={ic_result['rank_ic']:.4f}, Return={portfolio_result['portfolio_return']:.2%}")
-        
+
         # 生成报告
         report = self._generate_report()
-        
+
         return report
-    
-    def _generate_windows(self, dates: List) -> List[tuple]:
+
+    def _generate_windows(self, dates: list) -> list[tuple]:
         """生成训练/测试窗口"""
         config = self.config
-        
+
         windows = []
         train_end_idx = config.train_window_days - 1
-        
+
         while train_end_idx < len(dates) - config.test_window_days:
             train_end = dates[train_end_idx]
             test_start = dates[train_end_idx + 1]
             test_end = dates[train_end_idx + config.test_window_days]
-            
+
             windows.append((train_end, test_start, test_end))
-            
+
             train_end_idx += config.step_days
-        
+
         return windows
-    
+
     def _train_model(
         self,
         train_data: pd.DataFrame,
-        factor_cols: List[str],
+        factor_cols: list[str],
         label_col: str,
     ) -> dict:
         """训练模型"""
         # 简单平均模型
         # 每个因子横截面rank标准化后等权平均
-        
+
         model_scores = []
-        
+
         for col in factor_cols:
             if col in train_data.columns:
                 # 横截面rank
                 ranked = train_data.groupby('trade_date')[col].rank(pct=True)
                 model_scores.append(ranked)
-        
+
         if model_scores:
             composite = pd.concat(model_scores, axis=1).mean(axis=1)
             train_data = train_data.copy()
             train_data['model_score'] = composite.values
-        
+
         return {'method': 'simple_average', 'factors': factor_cols}
-    
+
     def _predict(
         self,
         test_data: pd.DataFrame,
-        factor_cols: List[str],
+        factor_cols: list[str],
         model: dict,
-    ) -> Optional[pd.DataFrame]:
+    ) -> pd.DataFrame | None:
         """在测试集预测"""
         if model['method'] == 'simple_average':
             model_scores = []
-            
+
             for col in factor_cols:
                 if col in test_data.columns:
                     ranked = test_data.groupby('trade_date')[col].rank(pct=True)
                     model_scores.append(ranked)
-            
+
             if model_scores:
                 composite = pd.concat(model_scores, axis=1).mean(axis=1)
                 test_data = test_data.copy()
                 test_data['score'] = composite.values
-                
+
                 return test_data[['trade_date', 'symbol', 'score'] + factor_cols]
-        
+
         return None
-    
+
     def _calculate_ic(
         self,
         predictions: pd.DataFrame,
@@ -335,19 +334,19 @@ class WalkForwardValidator:
     ) -> dict:
         """计算IC"""
         config = self.config
-        
+
         # 按日期计算截面rank IC
         daily_ics = []
-        
+
         for date, group in predictions.groupby('trade_date'):
             if label_col in group.columns:
                 score_rank = group['score'].rank(pct=True)
                 label_rank = group[label_col].rank(pct=True)
-                
+
                 if score_rank.std() > 0 and label_rank.std() > 0:
                     ic = score_rank.corr(label_rank)
                     daily_ics.append({'date': date, 'ic': ic})
-        
+
         if daily_ics:
             ic_df = pd.DataFrame(daily_ics)
             return {
@@ -356,14 +355,14 @@ class WalkForwardValidator:
                 'rank_ic_std': ic_df['ic'].std(),
                 'rank_ic_ir': ic_df['ic'].mean() / max(ic_df['ic'].std(), 0.001),
             }
-        
+
         return {'rank_ic': 0, 'rank_ic_mean': 0, 'rank_ic_std': 0, 'rank_ic_ir': 0}
-    
+
     def _build_portfolio(
         self,
         predictions: pd.DataFrame,
         test_data: pd.DataFrame,
-        factor_cols: List[str],
+        factor_cols: list[str],
         label_col: str,
         date_col: str,
         symbol_col: str,
@@ -371,11 +370,11 @@ class WalkForwardValidator:
     ) -> dict:
         """构建组合并计算收益"""
         config = self.config
-        
+
         # 简化：取最后一天的预测作为调仓日
         last_date = predictions[date_col].max()
         last_predictions = predictions[predictions[date_col] == last_date].copy()
-        
+
         if len(last_predictions) < config.top_n:
             return {
                 'portfolio_return': 0,
@@ -385,35 +384,35 @@ class WalkForwardValidator:
                 'turnover': 0,
                 'estimated_cost': 0,
             }
-        
+
         # 按score排序选股
         last_predictions = last_predictions.sort_values('score', ascending=False)
-        
+
         # 多空组合
         n_long = config.top_n // 2
         n_short = config.top_n // 2
-        
+
         long_stocks = last_predictions.head(n_long)['symbol'].tolist()
         short_stocks = last_predictions.tail(n_short)['symbol'].tolist()
-        
+
         # 获取这些股票在测试期间的真实收益
         test_data = test_data[test_data[symbol_col].isin(long_stocks + short_stocks)]
-        
+
         # 按股票计算收益
         stock_returns = test_data.groupby(symbol_col).apply(
             lambda x: (x[price_col].iloc[-1] / x[price_col].iloc[0]) - 1 if len(x) > 1 else 0
         )
-        
+
         long_returns = [stock_returns.get(s, 0) for s in long_stocks]
         short_returns = [stock_returns.get(s, 0) for s in short_stocks]
-        
+
         long_return = np.mean(long_returns) if long_returns else 0
         short_return = np.mean(short_returns) if short_returns else 0
-        
+
         # 组合收益 (等权多空)
         long_short_return = (long_return - short_return) / 2
         portfolio_return = long_return  # 纯多头
-        
+
         # 估算换手和成本
         turnover = 1.0  # 简化假设100%换手
         notional = 1.0 / n_long
@@ -421,7 +420,7 @@ class WalkForwardValidator:
         slippage = notional * (config.slippage_bps / 10000)
         stamp_duty = notional * (config.stamp_duty_bps / 10000)  # 卖方
         estimated_cost = (commission + slippage + stamp_duty) * 2 * n_long
-        
+
         return {
             'portfolio_return': portfolio_return,
             'long_return': long_return,
@@ -430,24 +429,24 @@ class WalkForwardValidator:
             'turnover': turnover,
             'estimated_cost': estimated_cost,
         }
-    
+
     def _generate_report(self) -> WalkForwardReport:
         """生成聚合报告"""
         if not self.results:
             return WalkForwardReport()
-        
+
         returns = [r.portfolio_return for r in self.results]
         ics = [r.rank_ic for r in self.results]
         turnovers = [r.turnover for r in self.results]
         costs = [r.estimated_cost for r in self.results]
-        
+
         # Regime分析
         bull_returns = [r.portfolio_return for r in self.results if r.is_bull]
         bear_returns = [r.portfolio_return for r in self.results if r.is_bear]
-        
+
         config = self.config
         is_oos_ratio = config.train_window_days / config.test_window_days
-        
+
         return WalkForwardReport(
             results=self.results,
             mean_return=np.mean(returns),
@@ -469,7 +468,7 @@ class WalkForwardValidator:
 
 def run_walk_forward_experiment(
     data_path: str,
-    factor_cols: List[str],
+    factor_cols: list[str],
     label_col: str = 'fwd_return_20d',
 ) -> WalkForwardReport:
     """
@@ -477,25 +476,25 @@ def run_walk_forward_experiment(
     """
     print(f"Loading data from {data_path}...")
     data = pd.read_parquet(data_path)
-    
+
     config = WalkForwardConfig(
         train_window_days=500,
         test_window_days=60,
         step_days=30,
         top_n=15,
     )
-    
+
     validator = WalkForwardValidator(config)
     report = validator.run(
         data=data,
         factor_cols=factor_cols,
         label_col=label_col,
     )
-    
+
     print("\n" + "="*60)
     print("Walk-Forward Results")
     print("="*60)
     for k, v in report.to_summary().items():
         print(f"  {k}: {v}")
-    
+
     return report

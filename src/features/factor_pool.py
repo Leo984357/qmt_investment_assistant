@@ -15,8 +15,9 @@ from src.features.factor_pool import get_all_factors, get_factors_by_source, pri
 3. factor_pool.py (667条目) - 仅描述参考
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
+
 import pandas as pd
 
 
@@ -31,17 +32,17 @@ class UnifiedFactor:
     economic_interpretation: str
     lookback: int
     data_requirement: list[str]
-    formula: Optional[str] = None
-    paper_reference: Optional[str] = None
+    formula: str | None = None
+    paper_reference: str | None = None
 
 
 def build_unified_factor_pool() -> list[UnifiedFactor]:
     """构建统一因子池"""
     factors = []
-    
+
     # ===== 学术因子 (Academic Factors) =====
     from src.features.academic_factors import ACADEMIC_FACTORS
-    
+
     for f in ACADEMIC_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -55,10 +56,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             formula=f.computation,
             paper_reference=f.source_paper,
         ))
-    
+
     # ===== Barra因子 =====
     from src.features.barra_factors import BARRA_STYLE_FACTORS
-    
+
     for f in BARRA_STYLE_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -71,10 +72,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             data_requirement=f.data_requirement,
             paper_reference="MSCI Barra GEM",
         ))
-    
+
     # ===== WorldQuant Alpha =====
     from src.features.worldquant_alphas import WORLDQUANT_ALPHAS
-    
+
     for a in WORLDQUANT_ALPHAS:
         factors.append(UnifiedFactor(
             name=a.name,
@@ -87,10 +88,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             data_requirement=a.data_requirement,
             paper_reference="Kakushadze 2016",
         ))
-    
+
     # ===== 行业因子 =====
     from src.features.sector_factors import SECTOR_FACTORS
-    
+
     for f in SECTOR_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -102,10 +103,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             lookback=f.lookback,
             data_requirement=f.data_requirement,
         ))
-    
+
     # ===== 形态学因子 =====
     from src.features.pattern_factors import PATTERN_FACTORS
-    
+
     for f in PATTERN_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -117,10 +118,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             lookback=f.lookback,
             data_requirement=f.data_requirement,
         ))
-    
+
     # ===== 扩展财务因子 =====
     from src.features.extended_financial_factors import EXTENDED_FINANCIAL_FACTORS
-    
+
     for f in EXTENDED_FINANCIAL_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -134,10 +135,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             formula=f.computation,
             paper_reference=f.paper_reference,
         ))
-    
+
     # ===== 扩展技术因子 =====
     from src.features.extended_technical_factors import EXTENDED_TECHNICAL_FACTORS
-    
+
     for f in EXTENDED_TECHNICAL_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -150,10 +151,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             data_requirement=f.data_requirement,
             formula=f.formula,
         ))
-    
+
     # ===== 分析师预期因子 =====
     from src.features.analyst_expectation_factors import ANALYST_FACTORS
-    
+
     for f in ANALYST_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -166,10 +167,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             data_requirement=f.data_requirement,
             formula=f.formula,
         ))
-    
+
     # ===== 资金流因子 =====
     from src.features.money_flow_factors import MONEY_FLOW_FACTORS
-    
+
     for f in MONEY_FLOW_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -182,10 +183,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             data_requirement=f.data_requirement,
             formula=f.formula,
         ))
-    
+
     # ===== 情绪因子 =====
     from src.features.sentiment_factors import SENTIMENT_FACTORS
-    
+
     for f in SENTIMENT_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -198,10 +199,10 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             data_requirement=f.data_requirement,
             formula=f.formula,
         ))
-    
+
     # ===== 宏观因子 =====
     from src.features.macro_factors import MACRO_FACTORS
-    
+
     for f in MACRO_FACTORS:
         factors.append(UnifiedFactor(
             name=f.name,
@@ -214,7 +215,7 @@ def build_unified_factor_pool() -> list[UnifiedFactor]:
             data_requirement=f.data_requirement,
             formula=f.formula,
         ))
-    
+
     return factors
 
 
@@ -255,54 +256,54 @@ def inventory() -> pd.DataFrame:
 def print_factor_pool_summary():
     """打印因子池汇总"""
     factors = build_unified_factor_pool()
-    
+
     print("=" * 100)
     print("统一因子库汇总")
     print("=" * 100)
-    
+
     # 按来源统计
     sources = {}
     for f in factors:
         if f.source not in sources:
             sources[f.source] = []
         sources[f.source].append(f)
-    
+
     print("\n【一、按来源分类】")
     for source, f_list in sorted(sources.items(), key=lambda x: -len(x[1])):
         print(f"  {source:<15}: {len(f_list)}个因子")
-    
+
     # 按大类统计
     categories = {}
     for f in factors:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     print("\n【二、按大类分类】")
     for cat, f_list in sorted(categories.items(), key=lambda x: -len(x[1])):
         print(f"  {cat:<25}: {len(f_list)}个因子")
-    
+
     # 详细列表
     print("\n【三、详细因子列表】")
     for source in ['academic', 'barra', 'worldquant', 'sector', 'pattern']:
         if source in sources:
             print(f"\n  === {source.upper()} ===")
             f_list = sources[source]
-            
+
             # 按子类别分组
             sub_cats = {}
             for f in f_list:
                 if f.sub_category not in sub_cats:
                     sub_cats[f.sub_category] = []
                 sub_cats[f.sub_category].append(f)
-            
+
             for sub, s_list in sorted(sub_cats.items()):
                 print(f"    [{sub}] {len(s_list)}个")
                 for f in s_list[:3]:  # 只显示前3个
                     print(f"      - {f.name}: {f.description[:50]}")
                 if len(s_list) > 3:
                     print(f"      ... 还有{len(s_list)-3}个")
-    
+
     print("\n" + "=" * 100)
     print(f"总计: {len(factors)}个因子")
     print("=" * 100)
@@ -311,14 +312,14 @@ def print_factor_pool_summary():
 def get_data_requirement_summary() -> pd.DataFrame:
     """数据需求汇总"""
     factors = build_unified_factor_pool()
-    
+
     all_requirements = {}
     for f in factors:
         for req in f.data_requirement:
             if req not in all_requirements:
                 all_requirements[req] = 0
             all_requirements[req] += 1
-    
+
     df = pd.DataFrame([
         {'data_requirement': k, 'factor_count': v}
         for k, v in sorted(all_requirements.items(), key=lambda x: -x[1])
@@ -328,7 +329,7 @@ def get_data_requirement_summary() -> pd.DataFrame:
 
 if __name__ == "__main__":
     print_factor_pool_summary()
-    
+
     print("\n")
     df = get_data_requirement_summary()
     print("【数据需求汇总】")
@@ -387,7 +388,7 @@ POOL_TO_SIMPLE_MAPPING: dict[str, str] = {
     'pcf_ratio': 'cashflow_yield',
     'ps_ratio': 'sales_to_price',
     'forward_earnings_yield': 'earnings_yield',
-    
+
     # 盈利类 (Profitability)
     'roe': 'roe',
     'roa': 'roa',
@@ -400,7 +401,7 @@ POOL_TO_SIMPLE_MAPPING: dict[str, str] = {
     'operating_profitability': 'operating_margin',
     'ebitda_margin': 'ebitda_margin',
     'cash_profitability': 'cash_profitability',
-    
+
     # 杠杆类 (Leverage)
     'debt_ratio': 'debt_ratio',
     'current_ratio': 'current_ratio',
@@ -410,7 +411,7 @@ POOL_TO_SIMPLE_MAPPING: dict[str, str] = {
     'book_leverage': 'book_leverage',
     'financial_leverage': 'financial_leverage',
     'operating_leverage': 'operating_leverage',
-    
+
     # 成长类 (Growth)
     'revenue_growth': 'revenue_growth',
     'profit_growth': 'profit_growth',
@@ -421,7 +422,7 @@ POOL_TO_SIMPLE_MAPPING: dict[str, str] = {
     'short_term_growth': 'profit_growth',
     'forecast_growth': 'forecast_growth',
     'book_equity_growth': 'equity_growth',
-    
+
     # 动量类 (Momentum)
     'momentum': 'mom250',
     'mom_20': 'mom20',
@@ -432,25 +433,25 @@ POOL_TO_SIMPLE_MAPPING: dict[str, str] = {
     'momentum_6m': 'mom120',
     'momentum_12m': 'mom250',
     'momentum_36m': 'mom250',
-    
+
     # 反转类 (Reversal)
     'short_term_reversal': 'rev5',
     'return_reversal_5d': 'rev5',
     'return_reversal_20d': 'rev20',
     'long_term_reversal': 'mom250',
-    
+
     # 波动率类 (Volatility)
     'volatility': 'vol_20',
     'total_volatility': 'vol_120',
     'idiosyncratic_vol': 'idio_vol',
     'max5vol': 'max_daily_return',
-    
+
     # 流动性类 (Liquidity)
     'amihud_illiquidity': 'amihud_illiq_20d',
     'turnover_rate': 'turnover_rate',
     'bid_ask_spread': 'bid_ask_spread',
     'zero_trade_days': 'zero_days_ratio',
-    
+
     # 技术指标类
     'rsi': 'rsi14',
     'rsi_6': 'rsi6',
@@ -465,26 +466,26 @@ POOL_TO_SIMPLE_MAPPING: dict[str, str] = {
     'adx_slope': 'adx14',
     'close_position': 'close_position_20d',
     'high_low_range': 'high_low_pos20',
-    
+
     # 规模类 (Size)
     'size': 'ln_market_cap',
     'ln_market_cap': 'ln_market_cap',
     'log_assets': 'ln_market_cap',
     'ln_total_assets': 'ln_total_assets',
     'size_nonlinear': 'size_nonlinear',
-    
+
     # 质量类 (Quality)
     'accruals': 'accruals',
     'accrual_ratio': 'accruals',
     'Altman_zscore': 'altman_zscore',
     'earnings_quality': 'earnings_quality',
     'intangibles': 'intangibles_ratio',
-    
+
     # 市场类 (Market)
     'beta': 'market_beta',
     'idyncorr_mkt': 'idio_mkt_corr',
     'max_daily_return': 'max_daily_return',
-    
+
     # 分析师类 (Analyst)
     'analyst_coverage': 'analyst_coverage',
     'forecast_dispersion': 'forecast_dispersion',
@@ -494,24 +495,24 @@ POOL_TO_SIMPLE_MAPPING: dict[str, str] = {
     'institution_coverage': 'institution_coverage',
     'institutional_ownership': 'inst_ownership',
     'inst_ownership_change': 'inst_ownership',
-    
+
     # 资金流类
     'main_flow_rank': 'main_flow_rank',
     'institutional_intensity': 'institutional_intensity',
     'super_flow_mean': 'super_flow_mean',
     'money_flow_intensity': 'money_flow_intensity',
     'sector_inflow_rank': 'sector_inflow_rank',
-    
+
     # 研报类
     'research_report_count': 'research_report_count',
     'avg_pe_2026': 'avg_pe_2026',
-    
+
     # 行业类
     'sector_mom_20d': 'sector_mom_20d',
     'sector_mom_60d': 'sector_mom_60d',
     'sector_rs_20d': 'sector_rs_20d',
     'sector_regime': 'sector_regime',
-    
+
     # WorldQuant Alpha
     'alpha_001': 'alpha_001',
     'alpha_002': 'alpha_002',
@@ -536,7 +537,7 @@ POOL_TO_SIMPLE_MAPPING: dict[str, str] = {
     'alpha_048': 'alpha_048',
     'alpha_049': 'alpha_049',
     'alpha_050': 'alpha_050',
-    
+
     # Extended Technical
     'vol_ratio_20_60': 'vol_ratio_20_60',
     'vol_ratio_5_60': 'vol_ratio_5_60',
@@ -1010,13 +1011,12 @@ REJECTED_POOL_NAMES: set[str] = {
 def get_pool_duplicates() -> dict[str, list[str]]:
     """返回重复因子名和它们的来源"""
     factors = build_unified_factor_pool()
-    from collections import Counter
     name_to_sources = {}
     for f in factors:
         if f.name not in name_to_sources:
             name_to_sources[f.name] = []
         name_to_sources[f.name].append(f.source)
-    
+
     return {k: v for k, v in name_to_sources.items() if len(v) > 1}
 
 
@@ -1029,7 +1029,7 @@ def check_pool_name(name: str) -> dict:
     """
     factors = build_unified_factor_pool()
     sources = [f.source for f in factors if f.name == name]
-    
+
     result = {
         'name': name,
         'is_duplicate': len(set(sources)) > 1 if sources else False,
@@ -1038,10 +1038,10 @@ def check_pool_name(name: str) -> dict:
         'canonical_source': DUPLICATE_RESOLUTION.get(name),
         'simple_mapping': POOL_TO_SIMPLE_MAPPING.get(name),
     }
-    
+
     if not sources:
         result['warning'] = f"因子 '{name}' 不在667池中"
-    
+
     return result
 
 

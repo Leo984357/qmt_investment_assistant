@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from src.experiment.spec import DataSpec
 
-from .base import BaseResearchDataSource
 from .baostock_ashare import BaoStockAShareConfig, BaoStockAShareDataSource
+from .base import BaseResearchDataSource
 from .mock_ashare import MockAShareConfig, MockAShareDataSource
 
 

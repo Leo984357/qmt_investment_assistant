@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
 
@@ -8,7 +8,6 @@ import numpy as np
 import pandas as pd
 
 from src.core.logging_utils import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -31,7 +30,7 @@ class ICWeightedAverageModel:
         self.feature_names = feature_names
         self.ic_weights = ic_weights or {}
         self.lookback_days = lookback_days
-        
+
     def fit_walk_forward(
         self,
         dataset: pd.DataFrame,
@@ -61,9 +60,9 @@ class ICWeightedAverageModel:
             train_end_idx = max(0, idx - int(label_horizon) - 1)
             train_start_idx = max(0, train_end_idx - self.lookback_days)
             train_dates = unique_dates[train_start_idx:train_end_idx]
-            
+
             train_df = dataset.loc[dataset['trade_date'].isin(train_dates)].dropna(subset=feature_names + [label_name]).copy()
-            
+
             ic_scores = {}
             for f in feature_names:
                 valid = train_df[['trade_date', f, label_name]].dropna()
@@ -74,10 +73,10 @@ class ICWeightedAverageModel:
                     ic_scores[f] = max(ic, 0.001)
                 else:
                     ic_scores[f] = 0.001
-            
+
             weights = np.array([ic_scores.get(f, 0.001) for f in feature_names])
             weights = weights / weights.sum()
-            
+
             test_df = dataset.loc[dataset['trade_date'] == signal_date].dropna(subset=feature_names).copy()
             if test_df.empty:
                 continue

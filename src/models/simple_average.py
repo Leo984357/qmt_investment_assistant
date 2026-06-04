@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
 
-import numpy as np
 import pandas as pd
 
 from src.core.logging_utils import get_logger
-
 
 logger = get_logger(__name__)
 

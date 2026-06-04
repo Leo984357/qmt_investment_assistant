@@ -6,7 +6,6 @@
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
@@ -18,16 +17,16 @@ class MoneyFlowFactor:
     description: str
     economic_interpretation: str
     lookback: int
-    data_requirement: List[str]
+    data_requirement: list[str]
     formula: str
     ic_direction: str
     update_frequency: str = "daily"
 
 
-MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
+MONEY_FLOW_FACTORS: list[MoneyFlowFactor] = [
 
     # ========== 一、大单资金流 (12个) ==========
-    
+
     # 超大单
     MoneyFlowFactor(
         name="super_large_net_flow",
@@ -89,7 +88,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
         ic_direction="positive",
         update_frequency="daily",
     ),
-    
+
     # 大单
     MoneyFlowFactor(
         name="large_net_flow",
@@ -139,7 +138,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
         ic_direction="positive",
         update_frequency="daily",
     ),
-    
+
     # 合计大单
     MoneyFlowFactor(
         name="big_order_net_flow",
@@ -179,7 +178,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
     ),
 
     # ========== 二、订单分类流 (10个) ==========
-    
+
     # 中单
     MoneyFlowFactor(
         name="medium_net_flow",
@@ -205,7 +204,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
         ic_direction="conditional",
         update_frequency="daily",
     ),
-    
+
     # 小单
     MoneyFlowFactor(
         name="small_net_flow",
@@ -243,7 +242,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
         ic_direction="negative",
         update_frequency="daily",
     ),
-    
+
     # 净流入占比
     MoneyFlowFactor(
         name="inflow_ratio",
@@ -307,7 +306,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
     ),
 
     # ========== 三、资金流向指标 (10个) ==========
-    
+
     # 主力资金
     MoneyFlowFactor(
         name="main_force_net_flow",
@@ -369,7 +368,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
         ic_direction="positive",
         update_frequency="daily",
     ),
-    
+
     # 资金流强度
     MoneyFlowFactor(
         name="flow_strength",
@@ -433,7 +432,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
     ),
 
     # ========== 四、资金博弈 (8个) ==========
-    
+
     # 多空博弈
     MoneyFlowFactor(
         name="buy_sell_imbalance",
@@ -483,7 +482,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
         ic_direction="negative",
         update_frequency="daily",
     ),
-    
+
     # 连续净流入/流出
     MoneyFlowFactor(
         name="consecutive_inflow_days",
@@ -509,7 +508,7 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
         ic_direction="negative",
         update_frequency="daily",
     ),
-    
+
     # 资金流反转
     MoneyFlowFactor(
         name="flow_reversal",
@@ -538,17 +537,17 @@ MONEY_FLOW_FACTORS: List[MoneyFlowFactor] = [
 ]
 
 
-def get_money_flow_factors() -> List[MoneyFlowFactor]:
+def get_money_flow_factors() -> list[MoneyFlowFactor]:
     """获取资金流因子列表"""
     return MONEY_FLOW_FACTORS
 
 
-def get_money_flow_factors_by_category(category: str) -> List[MoneyFlowFactor]:
+def get_money_flow_factors_by_category(category: str) -> list[MoneyFlowFactor]:
     """按类别获取资金流因子"""
     return [f for f in MONEY_FLOW_FACTORS if f.category == category]
 
 
-def get_money_flow_factor_names() -> List[str]:
+def get_money_flow_factor_names() -> list[str]:
     """获取所有资金流因子名称"""
     return [f.name for f in MONEY_FLOW_FACTORS]
 
@@ -560,13 +559,13 @@ def print_money_flow_factor_summary():
     print("=" * 80)
     print(f"总计: {len(MONEY_FLOW_FACTORS)}个因子")
     print()
-    
+
     categories = {}
     for f in MONEY_FLOW_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items(), key=lambda x: -len(x[1])):
         print(f"【{cat}】{len(factors)}个")
         for f in factors[:3]:

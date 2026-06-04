@@ -16,16 +16,31 @@ from src.data_sources.factory import build_data_source
 from src.data_store.catalog import LocalResearchCatalog
 from src.data_store.schemas import SCHEMAS
 from src.evaluation.registry import EvaluationContext
-from src.evaluation.reporting import compute_benchmark_nav, compute_drawdown, compute_monthly_returns, compute_rank_ic, latest_signal_report, performance_summary, trim_backtest_window, write_markdown_report
+from src.evaluation.reporting import (
+    compute_benchmark_nav,
+    compute_drawdown,
+    compute_monthly_returns,
+    compute_rank_ic,
+    latest_signal_report,
+    performance_summary,
+    trim_backtest_window,
+    write_markdown_report,
+)
+from src.evaluation.strategy_gate import default_gate
 from src.evaluation.suites import default_evaluation_registry
-from src.evaluation.strategy_gate import default_gate, StrategyGate
 from src.experiment.artifact import create_artifact_from_experiment, save_artifact
 from src.features.simple_definitions import simple_factor_registry as default_feature_registry
 from src.labels.definitions import default_label_registry
 from src.models.definitions import default_model_registry
 from src.ops.paths import ARTIFACT_RUNS_DIR, ensure_platform_dirs
 from src.portfolio.definitions import default_portfolio_registry
-from src.portfolio.enhancer import PortfolioEnhancer, BufferConfig, SmootherConfig, CostFilterConfig, RegimeExposureConfig
+from src.portfolio.enhancer import (
+    BufferConfig,
+    CostFilterConfig,
+    PortfolioEnhancer,
+    RegimeExposureConfig,
+    SmootherConfig,
+)
 from src.portfolio.registry import PortfolioContext
 from src.signals.definitions import default_signal_registry
 from src.signals.registry import SignalContext
@@ -186,7 +201,7 @@ def run_experiment(config_path: str | Path) -> dict:
     logger.info("Phase 6: Portfolio Enhancement (Buffer + Smooth + CostFilter)")
     logger.info("=" * 60)
     enhancer_start = perf_counter()
-    
+
     if spec.enhancer.enabled:
         regime_overlay_enabled = bool(spec.overlay.regime_exposure_enabled or spec.portfolio.regime_detection)
         enhancer = PortfolioEnhancer(
@@ -220,7 +235,7 @@ def run_experiment(config_path: str | Path) -> dict:
             4: 0.006,   # bucket 4: 0.6%
             5: 0.010,   # bucket 5: 1.0%
         })
-        
+
         # Regime exposure is an overlay strategy, not execution enhancement.
         # Keep it in this stage for backward compatibility, but require config
         # documentation via spec.overlay before formal conclusions.
@@ -234,13 +249,13 @@ def run_experiment(config_path: str | Path) -> dict:
                 idx_bars = daily_bar[daily_bar['symbol'].isin(universe_stocks)]
                 idx_data = idx_bars.groupby('trade_date').agg({'close': 'mean', 'volume': 'sum'}).reset_index()
                 idx_data['close'] = idx_data.groupby('trade_date')['close'].transform('mean')
-            
+
             market_index = idx_data.set_index('trade_date')['close'].sort_index()
             enhancer.set_market_index_history(market_index)
             logger.info("Market index set for regime detection: %d dates", len(market_index))
-        
+
         logger.info("Enhancer enabled: Buffer(retain_rank=%d,max=%.0f%%), Smooth(step=%.0f%%), CostFilter(alpha=%.3f), Regime(%s)",
-                    spec.enhancer.buffer_retain_threshold_rank, 
+                    spec.enhancer.buffer_retain_threshold_rank,
                     spec.enhancer.buffer_max_retain_ratio * 100,
                     spec.enhancer.smoother_step_ratio * 100,
                     spec.enhancer.cost_min_alpha_threshold,
@@ -248,10 +263,10 @@ def run_experiment(config_path: str | Path) -> dict:
     else:
         enhancer = None
         logger.info("Enhancer disabled by config")
-    
+
     # 准备价格数据
     close_matrix = daily_bar.pivot(index='trade_date', columns='symbol', values='close').sort_index()
-    
+
     # 获取调仓日期
     tw_dates = sorted(portfolio_result.target_weights['execution_date'].unique())
     current_positions: dict[str, float] = {}  # weights (e.g., 0.05 for 5%)
@@ -265,20 +280,20 @@ def run_experiment(config_path: str | Path) -> dict:
         'filtered_trades': 0,
         'enhancer_disabled': not spec.enhancer.enabled,
     }
-    
+
     for exec_date in tw_dates:
         exec_date_ts = pd.Timestamp(exec_date)
         day_tw = portfolio_result.target_weights[portfolio_result.target_weights['execution_date'] == exec_date].copy()
         day_candidates = portfolio_result.filtered_candidates[portfolio_result.filtered_candidates['execution_date'] == exec_date_ts].copy()
-        
+
         # 获取signal_date用于regime detection
         signal_date = day_tw['signal_date'].iloc[0] if not day_tw.empty and 'signal_date' in day_tw.columns else exec_date_ts
-        
+
         # 添加 rank 和 percentile 列 (基于 score)
         if 'rank' not in day_candidates.columns and 'score' in day_candidates.columns:
             day_candidates['rank'] = day_candidates['score'].rank(ascending=False, method='min')
             day_candidates['score_percentile'] = day_candidates['score'].rank(pct=True)
-        
+
         # 把score_percentile合并到day_tw
         if 'score_percentile' in day_candidates.columns and 'score_percentile' not in day_tw.columns:
             day_tw = day_tw.merge(
@@ -286,13 +301,13 @@ def run_experiment(config_path: str | Path) -> dict:
                 on=['symbol', 'execution_date'],
                 how='left'
             )
-        
+
         # 获取当日价格
         if exec_date_ts in close_matrix.index:
             prices = close_matrix.loc[exec_date_ts].dropna().to_dict()
         else:
             prices = {}
-        
+
         # 估算 equity 变化 (基于持仓股票的价格变动)
         if current_positions and prev_prices:
             equity_change = 0.0
@@ -305,7 +320,7 @@ def run_experiment(config_path: str | Path) -> dict:
                     equity_change += position_value * price_ret
             total_equity += equity_change
             total_equity = max(total_equity, spec.backtest.initial_cash * 0.5)  # 防止为负
-        
+
         # 应用增强器或跳过
         if enhancer is not None:
             enhanced_tw, summary = enhancer.enhance(
@@ -327,25 +342,25 @@ def run_experiment(config_path: str | Path) -> dict:
             enhancement_summary['filtered_trades'] += summary.get('filtered_trades', summary.get('skipped_trades', 0))
         else:
             enhanced_tw = day_tw.copy()
-        
+
         # 更新 prev_prices
         prev_prices = prices.copy()
-        
+
         enhanced_weights_list.append(enhanced_tw)
-        
+
         # 更新当前持仓 (权重)
         current_positions = {
             row['symbol']: row['target_weight']
             for _, row in enhanced_tw.iterrows()
             if row['target_weight'] > 0
         }
-    
+
     # 合并增强后的权重
     if enhanced_weights_list:
         enhanced_target_weights = pd.concat(enhanced_weights_list, ignore_index=True)
     else:
         enhanced_target_weights = portfolio_result.target_weights.copy()
-    
+
     enhanced_target_weights.to_parquet(run_dir / 'signals' / 'target_weights_enhanced.parquet', index=False)
     stage_timings['enhancement'] = perf_counter() - enhancer_start
     logger.info("Portfolio enhancement complete rebalances=%s buffered_retained=%s buffered_removed=%s filtered_trades=%s elapsed=%.1fs",
@@ -478,14 +493,14 @@ def run_experiment(config_path: str | Path) -> dict:
     latest_signal.to_parquet(run_dir / 'signals' / 'latest_signal.parquet', index=False)
     for table_name, table in evaluation_result.tables.items():
         table.to_parquet(run_dir / 'evaluation' / f'{table_name}.parquet', index=False)
-    
+
     # ========== Phase 9: Strategy Gate Evaluation ==========
     logger.info("=" * 60)
     logger.info("Phase 9: Strategy Gate Evaluation")
     logger.info("=" * 60)
-    
+
     gate = default_gate()
-    
+
     # 计算基准Sharpe
     baseline_sharpe = 0.0
     if not active_benchmark.empty:
@@ -498,7 +513,7 @@ def run_experiment(config_path: str | Path) -> dict:
             bm_returns = bm_nav.pct_change().dropna()
             if len(bm_returns) > 0 and bm_returns.std() > 0:
                 baseline_sharpe = (bm_returns.mean() * 252) / (bm_returns.std() * (252 ** 0.5))
-    
+
     # 计算年度分解
     yearly_breakdown = None
     if not active_nav.empty:
@@ -528,7 +543,7 @@ def run_experiment(config_path: str | Path) -> dict:
             })
         if yearly_rows:
             yearly_breakdown = pd.DataFrame(yearly_rows)
-    
+
     gate_result = gate.evaluate(
         strategy_name=spec.name,
         nav=active_nav,
@@ -539,18 +554,18 @@ def run_experiment(config_path: str | Path) -> dict:
         yearly_breakdown=yearly_breakdown,
         baseline_sharpe=baseline_sharpe,
     )
-    
+
     gate_markdown = gate_result.to_markdown()
     (run_dir / 'reports' / 'strategy_gate.md').write_text(gate_markdown, encoding='utf-8')
-    logger.info("Strategy Gate: %s (Score: %.1f/100)", 
+    logger.info("Strategy Gate: %s (Score: %.1f/100)",
                 "PASSED" if gate_result.passed else "FAILED",
                 gate_result.overall_score)
-    
+
     # ========== Phase 10: Save Experiment Artifact ==========
     logger.info("=" * 60)
     logger.info("Phase 10: Save Experiment Artifact")
     logger.info("=" * 60)
-    
+
     try:
         artifact = create_artifact_from_experiment(
             experiment_name=spec.name,
@@ -564,7 +579,7 @@ def run_experiment(config_path: str | Path) -> dict:
         )
         artifact_path = save_artifact(artifact, run_dir / 'metadata')
         logger.info("Saved experiment artifact: %s", artifact_path)
-        
+
         # Write full artifact to metadata/experiment_artifact.json for reproducibility
         (run_dir / 'metadata' / 'experiment_artifact.json').write_text(
             json.dumps(artifact.to_dict(), ensure_ascii=False, indent=2), encoding='utf-8'
@@ -589,52 +604,52 @@ def run_experiment(config_path: str | Path) -> dict:
         feature_importance=model_result.feature_importance,
     )
     (run_dir / 'reports' / 'factor_diagnostics.md').write_text(evaluation_result.markdown, encoding='utf-8')
-    
+
     # ========== Factor IC Monitoring ==========
     logger.info("=" * 60)
     logger.info("Saving Factor IC Monitoring Artifacts")
     logger.info("=" * 60)
     try:
         from src.features.ic_monitor import RealizedICMonitor
-        
+
         ic_monitor = RealizedICMonitor(
             factor_names=spec.features.names,
             label_horizon=spec.label.horizon if hasattr(spec.label, 'horizon') else 20,
             label_name=spec.label.name,
         )
-        
+
         # Build feature panel from model_dataset (contains actual factor values)
         # signal_scores only has trade_date/symbol/score, not factor values
         available_factor_cols = [f for f in spec.features.names if f in model_dataset.columns]
         if available_factor_cols:
             feature_panel = model_dataset[['trade_date', 'symbol'] + available_factor_cols].drop_duplicates()
-            
+
             label_cols = ['trade_date', 'symbol', spec.label.name]
             available_label_cols = [c for c in label_cols if c in label_panel.columns]
             label_panel_filtered = label_panel[available_label_cols].drop_duplicates()
-            
+
             if not feature_panel.empty and not label_panel_filtered.empty:
                 rebalance_dates = sorted(feature_panel['trade_date'].unique())
                 logger.info("Running IC monitor over %d signal dates", len(rebalance_dates))
-                
+
                 # Update monitor with IC data - iterate through ALL dates
                 for rebal_date in rebalance_dates:
                     ic_df = ic_monitor.update(rebal_date, feature_panel, label_panel_filtered)
-                
+
                 # Save IC monitoring artifacts
                 ic_history = ic_monitor.get_ic_history()
                 health_snapshot = ic_monitor.get_health_snapshot()
                 offline_factors = ic_monitor.get_offline_factors()
                 weights = ic_monitor.get_weights()
-                
+
                 if not ic_history.empty:
                     ic_history.to_parquet(run_dir / 'features' / 'factor_ic_history.parquet', index=False)
                     logger.info("Saved factor_ic_history.parquet: %d records", len(ic_history))
-                
+
                 if not health_snapshot.empty:
                     health_snapshot.to_parquet(run_dir / 'features' / 'factor_health_snapshot.parquet', index=False)
                     logger.info("Saved factor_health_snapshot.parquet: %d factors", len(health_snapshot))
-                
+
                 # Always generate decay report
                 decay_report = f"""# Factor Decay Report
 
@@ -652,9 +667,9 @@ Registry Stage: {spec.model.registry_stage if hasattr(spec.model, 'registry_stag
 """
                 for factor, weight in weights.items():
                     decay_report += f"- {factor}: {weight:.2f}\n"
-                
+
                 if offline_factors:
-                    decay_report += f"""
+                    decay_report += """
 ## ⚠️ Offline Factors (需要替换)
 """
                     for factor in offline_factors:
@@ -670,8 +685,8 @@ Replace offline factors from backup pool. Current backup pool candidates:
 ## Status: No offline factors detected
 All monitored factors are currently active or reduced (not fully offline).
 """
-                
-                decay_report += f"""
+
+                decay_report += """
 ## Rules Applied
 - ic_below_minus_003: 立即下线
 - ic_consecutive_negative_5_obs: 进入观察

@@ -6,7 +6,12 @@ import pandas as pd
 
 from src.core.module_registry import ModuleMetadata
 
-from .diagnostics import compute_quantile_forward_returns, compute_selection_turnover, compute_signal_coverage, summarize_rank_ic
+from .diagnostics import (
+    compute_quantile_forward_returns,
+    compute_selection_turnover,
+    compute_signal_coverage,
+    summarize_rank_ic,
+)
 from .registry import EvaluationContext, EvaluationRegistry, EvaluationSuiteResult, register_evaluation_suite
 
 
@@ -14,23 +19,23 @@ def _compute_yearly_breakdown(nav: pd.DataFrame, label_panel: pd.DataFrame, rank
     """Compute yearly performance breakdown."""
     if nav.empty:
         return pd.DataFrame()
-    
+
     nav = nav.copy()
     nav['trade_date'] = pd.to_datetime(nav['trade_date'])
     nav['year'] = nav['trade_date'].dt.year
-    
+
     yearly = []
     for year, group in nav.groupby('year'):
         group_sorted = group.sort_values('trade_date')
         nav_series = group_sorted.set_index('trade_date')['nav']
         daily_returns = nav_series.pct_change().fillna(0)
-        
+
         total_return = (nav_series.iloc[-1] / nav_series.iloc[0] - 1) if len(nav_series) > 1 else 0
         annual_return = total_return
         volatility = daily_returns.std() * (252 ** 0.5)
         sharpe = annual_return / volatility if volatility > 0 else 0
         max_dd = (nav_series / nav_series.cummax() - 1).min()
-        
+
         yearly.append({
             'year': int(year),
             'total_return': float(annual_return),
@@ -39,27 +44,27 @@ def _compute_yearly_breakdown(nav: pd.DataFrame, label_panel: pd.DataFrame, rank
             'max_drawdown': float(max_dd),
             'trading_days': len(group),
         })
-    
+
     return pd.DataFrame(yearly)
 
 
 def _compute_regime_breakdown(
-    nav: pd.DataFrame, 
-    daily_bar: pd.DataFrame, 
+    nav: pd.DataFrame,
+    daily_bar: pd.DataFrame,
     threshold_up: float = 0.0005,
     threshold_down: float = -0.0005
 ) -> dict:
     """Compute performance breakdown by market regime."""
     if daily_bar.empty or nav.empty:
         return {}
-    
+
     daily_bar = daily_bar.copy()
     daily_bar['trade_date'] = pd.to_datetime(daily_bar['trade_date'])
     daily_bar = daily_bar.sort_values('trade_date')
-    
+
     daily_bar['benchmark_return'] = daily_bar.groupby('trade_date')['close'].mean().pct_change()
     daily_bar = daily_bar.dropna(subset=['benchmark_return'])
-    
+
     regime_map = {}
     for date, row in daily_bar.groupby('trade_date')['benchmark_return'].first().items():
         if row > threshold_up:
@@ -68,11 +73,11 @@ def _compute_regime_breakdown(
             regime_map[date] = 'bear'
         else:
             regime_map[date] = 'neutral'
-    
+
     nav = nav.copy()
     nav['trade_date'] = pd.to_datetime(nav['trade_date'])
     nav['regime'] = nav['trade_date'].map(regime_map).fillna('neutral')
-    
+
     regime_stats = {}
     for regime, group in nav.groupby('regime'):
         if len(group) < 5:
@@ -84,7 +89,7 @@ def _compute_regime_breakdown(
             'days': len(group),
             'total_return': float(total_ret),
         }
-    
+
     return regime_stats
 
 
@@ -99,7 +104,7 @@ def _compute_cost_sensitivity(
     """
     if nav.empty or trades.empty:
         return pd.DataFrame()
-    
+
     # 使用backtest实际字段: fee (RMB) and equity
     # 计算成本占初始资金的比例
     initial_nav = nav['nav'].iloc[0] if 'nav' in nav.columns else 1.0
@@ -107,27 +112,27 @@ def _compute_cost_sensitivity(
         initial_equity = nav['equity'].iloc[0]
     else:
         initial_equity = initial_nav * 1e6  # 假设初始资金100万
-    
+
     base_cost = trades['fee'].sum() if 'fee' in trades.columns else 0.0
     cost_ratio = base_cost / max(initial_equity, 1e-9)
-    
+
     # 计算策略收益率
     strategy_return = nav['nav'].iloc[-1] / nav['nav'].iloc[0] - 1
-    
+
     results = []
-    
+
     for mult in cost_multipliers:
         adjusted_cost_ratio = cost_ratio * mult
         # Adjusted return = strategy_return - cost_ratio
         adjusted_return = strategy_return - adjusted_cost_ratio
-        
+
         results.append({
             'cost_multiplier': mult,
             'total_return': float(adjusted_return),
             'total_cost': float(base_cost * mult),
             'cost_ratio': float(adjusted_cost_ratio),
         })
-    
+
     return pd.DataFrame(results)
 
 
@@ -138,9 +143,9 @@ def _compute_baseline_comparison(
     """Compute excess return vs benchmark."""
     if strategy_nav.empty or benchmark_nav.empty:
         return {}
-    
+
     strategy_ret = strategy_nav['nav'].iloc[-1] / strategy_nav['nav'].iloc[0] - 1
-    
+
     # Handle different column names: 'nav' or 'benchmark_nav'
     if 'nav' in benchmark_nav.columns:
         benchmark_col = 'nav'
@@ -152,9 +157,9 @@ def _compute_baseline_comparison(
             'benchmark_return': 0.0,
             'excess_return': float(strategy_ret),
         }
-    
+
     benchmark_ret = benchmark_nav[benchmark_col].iloc[-1] / benchmark_nav[benchmark_col].iloc[0] - 1
-    
+
     return {
         'strategy_return': float(strategy_ret),
         'benchmark_return': float(benchmark_ret),
@@ -165,7 +170,7 @@ def _compute_baseline_comparison(
 def _comprehensive_factor_diagnostics(context: EvaluationContext, params: dict) -> EvaluationSuiteResult:
     """Comprehensive evaluation including regime, yearly, and cost sensitivity."""
     quantiles = int(params.get('quantiles', 5))
-    
+
     ic_summary = summarize_rank_ic(context.rank_ic)
     quantile_returns, quantile_summary = compute_quantile_forward_returns(
         signal_scores=context.signal_scores,
@@ -175,46 +180,46 @@ def _comprehensive_factor_diagnostics(context: EvaluationContext, params: dict) 
     )
     selection_turnover = compute_selection_turnover(context.target_weights)
     coverage = compute_signal_coverage(context.signal_scores, context.model_dataset, context.label_name)
-    
+
     yearly_breakdown = pd.DataFrame()
     regime_breakdown = {}
     cost_sensitivity = pd.DataFrame()
     baseline_comparison = {}
-    
+
     if hasattr(context, 'nav') and not context.nav.empty:
         yearly_breakdown = _compute_yearly_breakdown(context.nav, context.label_panel, context.rank_ic)
-        
+
         if hasattr(context, 'daily_bar') and not context.daily_bar.empty:
             regime_breakdown = _compute_regime_breakdown(context.nav, context.daily_bar)
-        
+
         if hasattr(context, 'trades') and not context.trades.empty:
             cost_sensitivity = _compute_cost_sensitivity(context.nav, context.trades)
-        
+
         if hasattr(context, 'benchmark_nav') and not context.benchmark_nav.empty:
             baseline_comparison = _compute_baseline_comparison(context.nav, context.benchmark_nav)
-    
+
     metrics = {
         'diagnostics_ic_mean': float(ic_summary['ic_mean'].iloc[0]) if not ic_summary.empty else 0.0,
         'diagnostics_ic_ir': float(ic_summary['ic_ir'].iloc[0]) if not ic_summary.empty else 0.0,
         'diagnostics_avg_selection_turnover': float(selection_turnover['selection_turnover'].iloc[1:].mean()) if len(selection_turnover) > 1 else 0.0,
         'diagnostics_avg_signal_coverage': float(coverage['coverage_ratio'].mean()) if not coverage.empty else 0.0,
     }
-    
+
     if yearly_breakdown is not None and not yearly_breakdown.empty:
         metrics['diagnostics_avg_yearly_sharpe'] = float(yearly_breakdown['sharpe'].mean())
         metrics['diagnostics_worst_year_return'] = float(yearly_breakdown['total_return'].min())
         metrics['diagnostics_best_year_return'] = float(yearly_breakdown['total_return'].max())
-    
+
     if baseline_comparison:
         metrics['diagnostics_excess_return'] = baseline_comparison.get('excess_return', 0)
-    
+
     top_bucket_row = quantile_summary.loc[quantile_summary['bucket'] == str(quantiles)]
     if not top_bucket_row.empty:
         metrics['diagnostics_top_bucket_return'] = float(top_bucket_row['mean_forward_return'].iloc[0])
     long_short_row = quantile_summary.loc[quantile_summary['bucket'] == 'long_short']
     if not long_short_row.empty:
         metrics['diagnostics_long_short_return'] = float(long_short_row['mean_forward_return'].iloc[0])
-    
+
     markdown = (
         '# Comprehensive Factor Diagnostics\n\n'
         '## Summary Metrics\n'
@@ -232,7 +237,7 @@ def _comprehensive_factor_diagnostics(context: EvaluationContext, params: dict) 
         '## Baseline Comparison\n'
         f"```json\n{json.dumps(baseline_comparison, ensure_ascii=False, indent=2)}\n```\n"
     )
-    
+
     return EvaluationSuiteResult(
         metrics=metrics,
         tables={

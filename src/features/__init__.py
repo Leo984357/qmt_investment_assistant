@@ -2,12 +2,12 @@
 
 from .definitions import default_feature_registry
 from .extended_definitions import extended_feature_registry, full_factor_registry
-from .simple_definitions import simple_factor_registry
 from .registry import FeatureRegistry, FeatureSpec
+from .simple_definitions import simple_factor_registry
 
 __all__ = [
     'default_feature_registry',
-    'extended_feature_registry', 
+    'extended_feature_registry',
     'full_factor_registry',
     'simple_factor_registry',
     'FeatureRegistry',

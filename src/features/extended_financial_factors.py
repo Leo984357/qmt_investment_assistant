@@ -5,7 +5,6 @@
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
@@ -17,18 +16,18 @@ class ExtendedFinancialFactor:
     description: str
     economic_interpretation: str
     lookback: int
-    data_requirement: List[str]
+    data_requirement: list[str]
     computation: str
     ic_direction: str  # positive, negative, conditional
-    paper_reference: Optional[str] = None
+    paper_reference: str | None = None
 
 
 # ===== 扩展财务因子池 (100个) =====
 
-EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
+EXTENDED_FINANCIAL_FACTORS: list[ExtendedFinancialFactor] = [
 
     # ========== 一、盈利能力类 (20个) ==========
-    
+
     # ROE及其变体
     ExtendedFinancialFactor(
         name="roe_ttm",
@@ -85,7 +84,7 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
         computation="sum(roe * [0.5,0.3,0.2]) / sum([0.5,0.3,0.2])",
         ic_direction="positive",
     ),
-    
+
     # ROA及其变体
     ExtendedFinancialFactor(
         name="roa_ttm",
@@ -142,7 +141,7 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
         computation="roe > 0.15",
         ic_direction="positive",
     ),
-    
+
     # 利润率因子
     ExtendedFinancialFactor(
         name="gross_margin_ttm",
@@ -232,7 +231,7 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
         computation="std(gross_margin) / mean(gross_margin)",
         ic_direction="negative",
     ),
-    
+
     # 其他盈利能力
     ExtendedFinancialFactor(
         name="cash_roe",
@@ -258,7 +257,7 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
     ),
 
     # ========== 二、成长能力类 (15个) ==========
-    
+
     ExtendedFinancialFactor(
         name="revenue_growth_qoq",
         category="growth",
@@ -426,7 +425,7 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
     ),
 
     # ========== 三、估值因子类 (20个) ==========
-    
+
     ExtendedFinancialFactor(
         name="pe_ttm",
         category="valuation",
@@ -649,7 +648,7 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
     ),
 
     # ========== 四、运营效率类 (10个) ==========
-    
+
     ExtendedFinancialFactor(
         name="asset_turnover",
         category="efficiency",
@@ -762,7 +761,7 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
     ),
 
     # ========== 五、杠杆/偿债类 (12个) ==========
-    
+
     ExtendedFinancialFactor(
         name="debt_ratio",
         category="leverage",
@@ -897,7 +896,7 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
     ),
 
     # ========== 六、现金流类 (10个) ==========
-    
+
     ExtendedFinancialFactor(
         name="ocf_per_share",
         category="cash_flow",
@@ -1010,7 +1009,7 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
     ),
 
     # ========== 七、质量因子类 (13个) ==========
-    
+
     ExtendedFinancialFactor(
         name="accrual_ratio",
         category="quality",
@@ -1157,17 +1156,17 @@ EXTENDED_FINANCIAL_FACTORS: List[ExtendedFinancialFactor] = [
 ]
 
 
-def get_extended_financial_factors() -> List[ExtendedFinancialFactor]:
+def get_extended_financial_factors() -> list[ExtendedFinancialFactor]:
     """获取扩展财务因子列表"""
     return EXTENDED_FINANCIAL_FACTORS
 
 
-def get_financial_factors_by_category(category: str) -> List[ExtendedFinancialFactor]:
+def get_financial_factors_by_category(category: str) -> list[ExtendedFinancialFactor]:
     """按类别获取财务因子"""
     return [f for f in EXTENDED_FINANCIAL_FACTORS if f.category == category]
 
 
-def get_financial_factor_names() -> List[str]:
+def get_financial_factor_names() -> list[str]:
     """获取所有财务因子名称"""
     return [f.name for f in EXTENDED_FINANCIAL_FACTORS]
 
@@ -1179,13 +1178,13 @@ def print_financial_factor_summary():
     print("=" * 80)
     print(f"总计: {len(EXTENDED_FINANCIAL_FACTORS)}个因子")
     print()
-    
+
     categories = {}
     for f in EXTENDED_FINANCIAL_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items(), key=lambda x: -len(x[1])):
         print(f"【{cat}】{len(factors)}个")
         for f in factors[:5]:

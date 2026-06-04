@@ -28,11 +28,11 @@
 """
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
-from scipy.stats import spearmanr
-from typing import Optional
 from dataclasses import dataclass
+
+import numpy as np
+import pandas as pd
+from scipy.stats import spearmanr
 
 
 @dataclass
@@ -53,12 +53,12 @@ class RealizedICCalculator:
     核心约束：只能使用已经兑现的数据
     realized_date = signal_date + horizon + trade_delay <= current_date
     """
-    
+
     def __init__(self, horizon: int = 20, trade_delay: int = 1, label_name: str = 'fwd_return_20d'):
         self.horizon = horizon
         self.trade_delay = trade_delay
         self.label_name = label_name
-    
+
     def get_realized_signal_dates(
         self,
         feature_panel: pd.DataFrame,
@@ -86,12 +86,12 @@ class RealizedICCalculator:
             return self._get_by_label_end_date(
                 feature_panel, label_panel, current_date
             )
-        
+
         # 方案2: 基于交易日序列位置判断
         return self._get_by_trading_day_index(
             feature_panel, label_panel, current_date
         )
-    
+
     def _get_by_label_end_date(
         self,
         feature_panel: pd.DataFrame,
@@ -101,10 +101,10 @@ class RealizedICCalculator:
         """使用label_end_date判断"""
         # 只取 label_end_date <= current_date 的信号
         realized = label_panel[label_panel['label_end_date'] <= current_date]
-        
+
         available_signal_dates = realized['signal_date'].unique()
         return sorted(available_signal_dates)
-    
+
     def _get_by_trading_day_index(
         self,
         feature_panel: pd.DataFrame,
@@ -123,7 +123,7 @@ class RealizedICCalculator:
         # 获取所有交易日序列（按日期排序）
         all_dates = sorted(feature_panel['trade_date'].unique())
         date_to_idx = {d: i for i, d in enumerate(all_dates)}
-        
+
         if current_date not in date_to_idx:
             # 找最近的交易日
             valid_dates = [d for d in all_dates if d <= current_date]
@@ -132,22 +132,22 @@ class RealizedICCalculator:
             current_idx = date_to_idx.get(valid_dates[-1], 0)
         else:
             current_idx = date_to_idx[current_date]
-        
+
         # 计算需要信号日索引 <= current_idx - (horizon + delay)
         required_offset = self.horizon + self.trade_delay
         max_signal_idx = current_idx - required_offset
-        
+
         if max_signal_idx < 0:
             return []
-        
+
         # 选取所有满足条件的信号日
         available_signal_dates = [
-            d for d in all_dates 
+            d for d in all_dates
             if date_to_idx[d] <= max_signal_idx
         ]
-        
+
         return sorted(available_signal_dates)
-    
+
     def calc_realized_ic(
         self,
         feature_panel: pd.DataFrame,
@@ -173,18 +173,18 @@ class RealizedICCalculator:
         realized_dates = self.get_realized_signal_dates(
             feature_panel, label_panel, current_date
         )
-        
+
         if not realized_dates:
             return {}
-        
+
         # 取最近的信号日进行计算
         signal_date = realized_dates[-1]
-        
+
         # 获取该信号日的因子值
         factor_data = feature_panel[
             feature_panel['trade_date'] == signal_date
         ][['trade_date', 'symbol'] + [f for f in factor_names if f in feature_panel.columns]]
-        
+
         # 获取该信号日对应的forward_return
         # label_panel的trade_date就是信号日
         label_cols = ['trade_date', 'symbol', self.label_name]
@@ -192,34 +192,34 @@ class RealizedICCalculator:
         label_data = label_panel[
             label_panel['trade_date'] == signal_date
         ][available_cols]
-        
+
         # 合并
         merged = factor_data.merge(
             label_data,
             on=['trade_date', 'symbol'],
             how='inner'
         )
-        
+
         results = {}
-        
+
         for factor_name in factor_names:
             if factor_name not in merged.columns:
                 continue
-            
+
             valid = merged[[self.label_name, factor_name]].dropna()
-            
+
             if len(valid) < min_samples:
                 continue
-            
+
             if valid[factor_name].std() < 1e-10:
                 continue
-            
+
             # IC (Pearson)
             ic = valid[self.label_name].corr(valid[factor_name])
-            
+
             # RankIC (Spearman)
             rank_ic, _ = spearmanr(valid[self.label_name], valid[factor_name])
-            
+
             if not np.isnan(rank_ic):
                 results[factor_name] = RealizedICResult(
                     trade_date=current_date,
@@ -229,7 +229,7 @@ class RealizedICCalculator:
                     rank_ic=rank_ic,
                     n_samples=len(valid),
                 )
-        
+
         return results
 
 
@@ -239,7 +239,7 @@ class RealizedICMonitor:
     
     整合RealizedICCalculator和FactorResponseMonitor
     """
-    
+
     def __init__(
         self,
         factor_names: list[str],
@@ -249,18 +249,18 @@ class RealizedICMonitor:
         label_name: str = 'fwd_return_20d',
     ):
         from src.features.factor_response import FactorResponseMonitor
-        
+
         self.factor_names = factor_names
         self.label_horizon = label_horizon
         self.trade_delay = trade_delay
         self.label_name = label_name
-        
+
         self.calculator = RealizedICCalculator(
             horizon=label_horizon,
             trade_delay=trade_delay,
             label_name=label_name,
         )
-        
+
         self.response_monitor = FactorResponseMonitor(
             factor_names=factor_names,
             ic_threshold_watch=0.0,
@@ -270,12 +270,12 @@ class RealizedICMonitor:
             consecutive_days_offline=15,
             consecutive_days_recover=20,
         )
-        
+
         self._ic_results: list[RealizedICResult] = []
         self._last_signal_date: dict[str, pd.Timestamp] = {}
         self._processed_keys: set[tuple] = set()  # {(factor, signal_date)}
         self.min_realized_samples = min_realized_samples
-    
+
     def update(
         self,
         rebalance_date: pd.Timestamp,
@@ -301,10 +301,10 @@ class RealizedICMonitor:
             factor_names=self.factor_names,
             min_samples=self.min_realized_samples,
         )
-        
+
         if not ic_results:
             return pd.DataFrame()
-        
+
         # 去重：跳过已处理的 (factor, signal_date)
         new_results = {}
         skipped_count = 0
@@ -315,19 +315,19 @@ class RealizedICMonitor:
                 continue
             self._processed_keys.add(key)
             new_results[factor_name] = result
-        
+
         # 更新响应监控器（只传入新结果）
         if new_results:
             ic_data = {k: v.rank_ic for k, v in new_results.items()}
             self.response_monitor.update(rebalance_date, ic_data)
-            
+
             # 记录新结果
             self._ic_results.extend(new_results.values())
-        
+
         # 记录信号日（用于信息）
         for factor_name, result in new_results.items():
             self._last_signal_date[factor_name] = result.signal_date
-        
+
         return pd.DataFrame([
             {
                 'rebalance_date': r.trade_date,
@@ -339,24 +339,24 @@ class RealizedICMonitor:
             }
             for r in new_results.values()
         ])
-    
+
     def get_weights(self) -> dict[str, float]:
         """获取当前因子权重"""
         return self.response_monitor.get_weights()
-    
+
     def get_health_snapshot(self) -> pd.DataFrame:
         """获取健康快照"""
         return self.response_monitor.get_health_snapshot()
-    
+
     def get_records(self) -> pd.DataFrame:
         """获取响应记录"""
         return self.response_monitor.get_records()
-    
+
     def get_ic_history(self) -> pd.DataFrame:
         """获取IC历史"""
         if not self._ic_results:
             return pd.DataFrame()
-        
+
         return pd.DataFrame([
             {
                 'rebalance_date': r.trade_date,
@@ -368,18 +368,18 @@ class RealizedICMonitor:
             }
             for r in self._ic_results
         ])
-    
+
     def get_offline_factors(self) -> list[str]:
         """获取已下线的因子"""
         snapshot = self.get_health_snapshot()
         if snapshot.empty:
             return []
         return snapshot[snapshot['status'] == 'offline']['factor_name'].tolist()
-    
+
     def get_action_summary(self) -> pd.DataFrame:
         """获取需要采取的行动"""
         return self.response_monitor.get_action_summary()
-    
+
     def export_for_artifact(self) -> dict:
         """导出用于artifact"""
         return {
@@ -399,34 +399,34 @@ class RealizedICMonitor:
 
 if __name__ == "__main__":
     import numpy as np
-    
+
     np.random.seed(42)
     dates = pd.date_range('2024-01-01', periods=100, freq='B')
     symbols = [f'00000{i}.SZ' for i in range(10)]
-    
+
     # 模拟因子面板
     feature_panel = pd.DataFrame([
         {'trade_date': d, 'symbol': s, 'earnings_yield': np.random.randn(), 'roe': np.random.randn()}
         for d in dates
         for s in symbols
     ])
-    
+
     # 模拟标签面板
     label_panel = pd.DataFrame([
         {'trade_date': d, 'symbol': s, 'fwd_return_20d': np.random.randn() * 0.05}
         for d in dates
         for s in symbols
     ])
-    
+
     monitor = RealizedICMonitor(
         factor_names=['earnings_yield', 'roe'],
         label_horizon=20,
         trade_delay=1,
     )
-    
+
     # 模拟调仓日
     rebalance_dates = dates[30::10]
-    
+
     for rebal_date in rebalance_dates[:5]:
         print(f"\n调仓日: {rebal_date}")
         ic_df = monitor.update(rebal_date, feature_panel, label_panel)
@@ -434,9 +434,9 @@ if __name__ == "__main__":
             print(ic_df.to_string(index=False))
         else:
             print("无可用兑现数据")
-    
+
     print("\n\n健康快照:")
     print(monitor.get_health_snapshot())
-    
+
     print("\n\n权重:")
     print(monitor.get_weights())

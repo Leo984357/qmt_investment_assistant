@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import altair as alt
-import numpy as np
 import pandas as pd
 import streamlit as st
-from pathlib import Path
 
 from .helpers import *
+
 
 def _metric_card(label: str, value: str, sub: str, tone: str = 'neutral') -> str:
     return (

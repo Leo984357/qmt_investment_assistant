@@ -9,10 +9,8 @@
 5. Stambaugh-Yuan factors (2017)
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Callable
-import pandas as pd
-import numpy as np
 
 
 @dataclass(frozen=True)
@@ -55,7 +53,7 @@ ACADEMIC_FACTORS = [
         lookback=1,
         computation="long high BM stocks, short low BM stocks",
     ),
-    
+
     # ===== Fama-French 5因子 =====
     AcademicFeatureSpec(
         name="rmw",
@@ -75,7 +73,7 @@ ACADEMIC_FACTORS = [
         lookback=1,
         computation="long low asset growth, short high asset growth",
     ),
-    
+
     # ===== Carhart 4因子 =====
     AcademicFeatureSpec(
         name="mom_12_1",
@@ -86,7 +84,7 @@ ACADEMIC_FACTORS = [
         lookback=13,
         computation="return_t-12 to return_t-2, skip most recent month",
     ),
-    
+
     # ===== Novy-Marx因子 =====
     AcademicFeatureSpec(
         name="gross_profitability",
@@ -106,7 +104,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="(revenue - cogs - sga - interest) / book_equity",
     ),
-    
+
     # ===== q-factor模型 (Hou-Xue-Zhang 2014) =====
     AcademicFeatureSpec(
         name="q_me",
@@ -144,7 +142,7 @@ ACADEMIC_FACTORS = [
         lookback=240,
         computation="change in ROE",
     ),
-    
+
     # ===== Stambaugh-Yuan因子 (2017) =====
     AcademicFeatureSpec(
         name="mgmt",
@@ -164,7 +162,7 @@ ACADEMIC_FACTORS = [
         lookback=240,
         computation="基于盈利/投资效率",
     ),
-    
+
     # ===== Baugess-Danilov因子 =====
     AcademicFeatureSpec(
         name="bm_slope",
@@ -175,7 +173,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="slope of book-to-market over time",
     ),
-    
+
     # ===== 短期反转 =====
     AcademicFeatureSpec(
         name="short_term_reversal",
@@ -195,7 +193,7 @@ ACADEMIC_FACTORS = [
         lookback=1,
         computation="close - VWAP deviation",
     ),
-    
+
     # ===== 长期反转 =====
     AcademicFeatureSpec(
         name="long_term_reversal",
@@ -206,7 +204,7 @@ ACADEMIC_FACTORS = [
         lookback=750,
         computation="-return_t-36 to t-60",
     ),
-    
+
     # ===== 彩票需求 =====
     AcademicFeatureSpec(
         name="max_daily_return",
@@ -235,7 +233,7 @@ ACADEMIC_FACTORS = [
         lookback=21,
         computation="average of top 5 daily returns",
     ),
-    
+
     # ===== 盈利动量 =====
     AcademicFeatureSpec(
         name="earnings_momentum",
@@ -255,7 +253,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="(net income - operating cash flow) / total assets",
     ),
-    
+
     # ===== 分析师因子 =====
     AcademicFeatureSpec(
         name="analyst_coverage",
@@ -284,7 +282,7 @@ ACADEMIC_FACTORS = [
         lookback=60,
         computation="change in number of positive minus negative forecasts",
     ),
-    
+
     # ===== 机构持仓 =====
     AcademicFeatureSpec(
         name="institutional_ownership",
@@ -304,7 +302,7 @@ ACADEMIC_FACTORS = [
         lookback=60,
         computation="change in institutional ownership",
     ),
-    
+
     # ===== 宏观风险 =====
     AcademicFeatureSpec(
         name="beta",
@@ -324,7 +322,7 @@ ACADEMIC_FACTORS = [
         lookback=252,
         computation="rolling correlation of residuals with market",
     ),
-    
+
     # ===== 交易摩擦 =====
     AcademicFeatureSpec(
         name="amihud_illiquidity",
@@ -353,7 +351,7 @@ ACADEMIC_FACTORS = [
         lookback=21,
         computation="percentage of zero trading days",
     ),
-    
+
     # ===== 财务困境 =====
     AcademicFeatureSpec(
         name="bankruptcy_prob",
@@ -373,7 +371,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="1.2*WC/TA + 1.4*RE/TA + 3.3*EBIT/TA + 0.6*ME/TL + 1.0*S/TA",
     ),
-    
+
     # ===== 竞争因子 =====
     AcademicFeatureSpec(
         name="intangibles",
@@ -402,7 +400,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="capex / total_assets",
     ),
-    
+
     # ===== 盈利质量 =====
     AcademicFeatureSpec(
         name="roa",
@@ -467,7 +465,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="debt / equity",
     ),
-    
+
     # ===== 成长因子 =====
     AcademicFeatureSpec(
         name="revenue_growth",
@@ -496,7 +494,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="change in book_equity / book_equity (lagged)",
     ),
-    
+
     # ===== 估值因子 =====
     AcademicFeatureSpec(
         name="pe_ratio",
@@ -552,7 +550,7 @@ ACADEMIC_FACTORS = [
         lookback=60,
         computation="dividends_per_share / price",
     ),
-    
+
     # ===== 规模因子 =====
     AcademicFeatureSpec(
         name="ln_market_cap",
@@ -572,7 +570,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="log(total_assets)",
     ),
-    
+
     # ===== 技术因子扩展 =====
     AcademicFeatureSpec(
         name="volume_price_correlation",
@@ -655,7 +653,7 @@ ACADEMIC_FACTORS = [
         lookback=756,
         computation="return_t-36 to t-13",
     ),
-    
+
     # ===== 行为因子 =====
     AcademicFeatureSpec(
         name="attention_grab",
@@ -684,7 +682,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="accruals quality measure",
     ),
-    
+
     # ===== 供应链 =====
     AcademicFeatureSpec(
         name="supplier_concentration",
@@ -704,7 +702,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="percentage of sales to top customers",
     ),
-    
+
     # ===== ESG =====
     AcademicFeatureSpec(
         name="esg_score",
@@ -724,7 +722,7 @@ ACADEMIC_FACTORS = [
         lookback=120,
         computation="carbon_emissions / revenue",
     ),
-    
+
     # ===== 期权市场 =====
     AcademicFeatureSpec(
         name="option_skew",
@@ -762,18 +760,18 @@ def print_academic_factor_summary():
     print("=" * 100)
     print("学术因子库汇总")
     print("=" * 100)
-    
+
     categories = {}
     for f in ACADEMIC_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items()):
         print(f"\n【{cat.upper()}】{len(factors)}个因子")
         for f in factors:
             print(f"  {f.name:<30} {f.description:<40} 来源:{f.source_paper}")
-    
+
     print(f"\n总计: {len(ACADEMIC_FACTORS)}个学术因子")
 
 

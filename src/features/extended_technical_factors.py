@@ -5,7 +5,6 @@
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
@@ -17,15 +16,15 @@ class ExtendedTechnicalFactor:
     description: str
     economic_interpretation: str
     lookback: int
-    data_requirement: List[str]
+    data_requirement: list[str]
     formula: str
     ic_direction: str
 
 
-EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
+EXTENDED_TECHNICAL_FACTORS: list[ExtendedTechnicalFactor] = [
 
     # ========== 一、均线系统 (20个) ==========
-    
+
     # 简单均线
     ExtendedTechnicalFactor(
         name="ma5",
@@ -93,7 +92,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="mean(close, 250)",
         ic_direction="conditional",
     ),
-    
+
     # 均线交叉
     ExtendedTechnicalFactor(
         name="ma5_10_golden_cross",
@@ -139,7 +138,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="ma20 < ma60 AND ma20_1 > ma60_1",
         ic_direction="negative",
     ),
-    
+
     # 均线多头/空头排列
     ExtendedTechnicalFactor(
         name="ma_bull_alignment",
@@ -163,7 +162,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="(ma5 < ma10 < ma20 < ma60) * (1 - ma5/ma60)",
         ic_direction="negative",
     ),
-    
+
     # 指数移动均线
     ExtendedTechnicalFactor(
         name="ema12",
@@ -198,7 +197,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="ema(close, 9)",
         ic_direction="conditional",
     ),
-    
+
     # 加权均线
     ExtendedTechnicalFactor(
         name="wma5",
@@ -222,7 +221,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="wma(close, 20)",
         ic_direction="conditional",
     ),
-    
+
     # 均线乖离
     ExtendedTechnicalFactor(
         name="ma5_bias",
@@ -259,7 +258,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
     ),
 
     # ========== 二、动量指标 (20个) ==========
-    
+
     # RSI及其变体
     ExtendedTechnicalFactor(
         name="rsi6",
@@ -294,7 +293,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="100 - 100/(1 + rs)",
         ic_direction="conditional",
     ),
-    
+
     # MACD及其变体
     ExtendedTechnicalFactor(
         name="macd",
@@ -329,7 +328,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="macd_histogram - macd_histogram_1",
         ic_direction="conditional",
     ),
-    
+
     # KDJ指标
     ExtendedTechnicalFactor(
         name="kdj_k",
@@ -386,7 +385,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="kdj_k < kdj_d AND kdj_k_1 > kdj_d_1",
         ic_direction="negative",
     ),
-    
+
     # WR威廉指标
     ExtendedTechnicalFactor(
         name="wr14",
@@ -410,7 +409,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="(highest - close) / (highest - lowest)",
         ic_direction="conditional",
     ),
-    
+
     # 动量变化率
     ExtendedTechnicalFactor(
         name="roc5",
@@ -445,7 +444,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="(close - close_60d_ago) / close_60d_ago",
         ic_direction="positive",
     ),
-    
+
     # 其他动量
     ExtendedTechnicalFactor(
         name="cci14",
@@ -493,7 +492,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
     ),
 
     # ========== 三、波动率指标 (15个) ==========
-    
+
     # ATR及其变体
     ExtendedTechnicalFactor(
         name="atr14",
@@ -528,7 +527,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="atr / close",
         ic_direction="conditional",
     ),
-    
+
     # 布林带
     ExtendedTechnicalFactor(
         name="bb_upper",
@@ -574,7 +573,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="(close - lower) / (upper - lower)",
         ic_direction="conditional",
     ),
-    
+
     # 历史波动率
     ExtendedTechnicalFactor(
         name="hv20",
@@ -609,7 +608,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="std(log(close/close_1)) * sqrt(252)",
         ic_direction="conditional",
     ),
-    
+
     # 波动率变化
     ExtendedTechnicalFactor(
         name="vol_change",
@@ -633,7 +632,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="percentile_rank(hv20, 1y)",
         ic_direction="conditional",
     ),
-    
+
     # 其他波动
     ExtendedTechnicalFactor(
         name="daily_range_pct",
@@ -681,7 +680,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
     ),
 
     # ========== 四、成交量指标 (15个) ==========
-    
+
     # 量价相关
     ExtendedTechnicalFactor(
         name="volume_price_trend",
@@ -705,7 +704,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="sum((close - close_1) * volume)",
         ic_direction="positive",
     ),
-    
+
     # OBV及其变体
     ExtendedTechnicalFactor(
         name="obv",
@@ -740,7 +739,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="obv > ma(obv, 5) AND obv_1 < ma(obv_1, 5)",
         ic_direction="positive",
     ),
-    
+
     # VR成交量比
     ExtendedTechnicalFactor(
         name="vr14",
@@ -764,7 +763,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="上升量/下降量 * 100",
         ic_direction="conditional",
     ),
-    
+
     # 量比
     ExtendedTechnicalFactor(
         name="volume_ratio",
@@ -788,7 +787,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="volume / ma(volume, 20)",
         ic_direction="conditional",
     ),
-    
+
     # 换手率
     ExtendedTechnicalFactor(
         name="turnover_rate",
@@ -823,7 +822,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="ma(volume / float_shares, 20)",
         ic_direction="conditional",
     ),
-    
+
     # 量价背离
     ExtendedTechnicalFactor(
         name="price_volume_divergence",
@@ -871,7 +870,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
     ),
 
     # ========== 五、趋势指标 (10个) ==========
-    
+
     # ADX
     ExtendedTechnicalFactor(
         name="adx14",
@@ -928,7 +927,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="slope(adx, 10)",
         ic_direction="positive",
     ),
-    
+
     # 趋势强度
     ExtendedTechnicalFactor(
         name="trend_strength",
@@ -952,7 +951,7 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
         formula="sum(sign(return)) / n",
         ic_direction="positive",
     ),
-    
+
     # 通道
     ExtendedTechnicalFactor(
         name="donchian_high",
@@ -990,17 +989,17 @@ EXTENDED_TECHNICAL_FACTORS: List[ExtendedTechnicalFactor] = [
 ]
 
 
-def get_extended_technical_factors() -> List[ExtendedTechnicalFactor]:
+def get_extended_technical_factors() -> list[ExtendedTechnicalFactor]:
     """获取扩展技术因子列表"""
     return EXTENDED_TECHNICAL_FACTORS
 
 
-def get_technical_factors_by_category(category: str) -> List[ExtendedTechnicalFactor]:
+def get_technical_factors_by_category(category: str) -> list[ExtendedTechnicalFactor]:
     """按类别获取技术因子"""
     return [f for f in EXTENDED_TECHNICAL_FACTORS if f.category == category]
 
 
-def get_technical_factor_names() -> List[str]:
+def get_technical_factor_names() -> list[str]:
     """获取所有技术因子名称"""
     return [f.name for f in EXTENDED_TECHNICAL_FACTORS]
 
@@ -1012,13 +1011,13 @@ def print_technical_factor_summary():
     print("=" * 80)
     print(f"总计: {len(EXTENDED_TECHNICAL_FACTORS)}个因子")
     print()
-    
+
     categories = {}
     for f in EXTENDED_TECHNICAL_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items(), key=lambda x: -len(x[1])):
         print(f"【{cat}】{len(factors)}个")
         for f in factors[:5]:

@@ -5,40 +5,39 @@ import numpy as np
 import pandas as pd
 
 from ..registry import FeatureRegistry, FeatureSpec
-
 from .helpers import (
-    _pct_change,
-    _rolling_std,
-    _rolling_mean,
-    _rolling_max,
-    _rolling_min,
-    _vwap,
     _adv,
-    _returns,
-    _log_returns,
-    _volume_ratio,
-    _ewm_std,
-    _rsi,
-    _williams_r,
-    _kdj_k,
-    _kdj_d,
-    _cci,
-    _obv,
-    _volume_chaikin,
-    _ma_diff,
-    _price_to_ma,
-    _high_low_position,
-    _vol_std_ratio,
-    _volume_std,
-    _skewness,
-    _kurtosis,
     _amount_growth,
+    _atr_normalized,
+    _cci,
     _close_to_high,
     _close_to_low,
-    _atr_normalized,
-    _macd_diff,
     _dea,
+    _ewm_std,
+    _high_low_position,
+    _kdj_d,
+    _kdj_k,
+    _kurtosis,
+    _log_returns,
+    _ma_diff,
+    _macd_diff,
     _macd_hist,
+    _obv,
+    _pct_change,
+    _price_to_ma,
+    _returns,
+    _rolling_max,
+    _rolling_mean,
+    _rolling_min,
+    _rolling_std,
+    _rsi,
+    _skewness,
+    _vol_std_ratio,
+    _volume_chaikin,
+    _volume_ratio,
+    _volume_std,
+    _vwap,
+    _williams_r,
 )
 from .worldquant_pool import (
     _worldquant_alpha_001,
@@ -1394,7 +1393,10 @@ def simple_factor_registry() -> FeatureRegistry:
         return frame.groupby('symbol')['volume'].transform(lambda x: x / x.rolling(60).mean())
 
     def _amihud_illiq_20d(frame: pd.DataFrame) -> pd.Series:
-        returns = frame.groupby('symbol')['pct_chg'].transform(lambda x: x / 100).abs()
+        if 'pct_chg' in frame.columns:
+            returns = frame.groupby('symbol')['pct_chg'].transform(lambda x: x / 100).abs()
+        else:
+            returns = frame.groupby('symbol')['close'].pct_change().abs()
         volume = frame.groupby('symbol')['amount'].transform(lambda x: x / 1000000)
         return (returns / volume.replace(0, np.nan)).groupby(frame['symbol']).transform(lambda x: x.rolling(20).mean())
 

@@ -6,7 +6,6 @@
 """
 
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -18,16 +17,16 @@ class SentimentFactor:
     description: str
     economic_interpretation: str
     lookback: int
-    data_requirement: List[str]
+    data_requirement: list[str]
     formula: str
     ic_direction: str
     update_frequency: str = "daily"
 
 
-SENTIMENT_FACTORS: List[SentimentFactor] = [
+SENTIMENT_FACTORS: list[SentimentFactor] = [
 
     # ========== 一、舆情因子 (10个) ==========
-    
+
     SentimentFactor(
         name="news_sentiment",
         category="sentiment",
@@ -150,7 +149,7 @@ SENTIMENT_FACTORS: List[SentimentFactor] = [
     ),
 
     # ========== 二、关注度因子 (8个) ==========
-    
+
     SentimentFactor(
         name="attention_rank",
         category="attention",
@@ -249,7 +248,7 @@ SENTIMENT_FACTORS: List[SentimentFactor] = [
     ),
 
     # ========== 三、波动率情绪 (10个) ==========
-    
+
     SentimentFactor(
         name="volatility_sentiment",
         category="volatility_sentiment",
@@ -372,7 +371,7 @@ SENTIMENT_FACTORS: List[SentimentFactor] = [
     ),
 
     # ========== 四、异常交易 (7个) ==========
-    
+
     SentimentFactor(
         name="volume_spike",
         category="abnormal_trading",
@@ -460,12 +459,12 @@ SENTIMENT_FACTORS: List[SentimentFactor] = [
 ]
 
 
-def get_sentiment_factors() -> List[SentimentFactor]:
+def get_sentiment_factors() -> list[SentimentFactor]:
     """获取情绪因子列表"""
     return SENTIMENT_FACTORS
 
 
-def get_sentiment_factor_names() -> List[str]:
+def get_sentiment_factor_names() -> list[str]:
     """获取所有情绪因子名称"""
     return [f.name for f in SENTIMENT_FACTORS]
 
@@ -477,13 +476,13 @@ def print_sentiment_factor_summary():
     print("=" * 80)
     print(f"总计: {len(SENTIMENT_FACTORS)}个因子")
     print()
-    
+
     categories = {}
     for f in SENTIMENT_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items(), key=lambda x: -len(x[1])):
         print(f"【{cat}】{len(factors)}个")
         for f in factors[:3]:

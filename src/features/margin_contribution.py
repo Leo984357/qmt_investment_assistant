@@ -8,10 +8,11 @@
 4. 因子角色判断
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 
 @dataclass
@@ -39,10 +40,10 @@ class MarginContributionAnalyzer:
         factor_data=factor_data,
     )
     """
-    
+
     def __init__(self):
         pass
-    
+
     def analyze(
         self,
         factor_name: str,
@@ -60,12 +61,12 @@ class MarginContributionAnalyzer:
         baseline_metrics = self._calculate_pool_metrics(
             factor_data, baseline_pool, label_col, date_col
         )
-        
+
         # 计算新池指标
         new_pool_metrics = self._calculate_pool_metrics(
             factor_data, new_pool, label_col, date_col
         )
-        
+
         # 计算边际变化
         marginal_metrics = {
             'ic_change': new_pool_metrics['ic_mean'] - baseline_metrics['ic_mean'],
@@ -73,12 +74,12 @@ class MarginContributionAnalyzer:
             'turnover_change': new_pool_metrics['turnover'] - baseline_metrics['turnover'],
             'pool_diversity_change': new_pool_metrics['diversity'] - baseline_metrics['diversity'],
         }
-        
+
         # 判断边际价值
         recommendation, priority = self._make_recommendation(
             marginal_metrics, baseline_metrics, new_pool_metrics
         )
-        
+
         return MarginContributionResult(
             factor_name=factor_name,
             baseline_metrics=baseline_metrics,
@@ -87,7 +88,7 @@ class MarginContributionAnalyzer:
             recommendation=recommendation,
             priority=priority,
         )
-    
+
     def _calculate_pool_metrics(
         self,
         data: pd.DataFrame,
@@ -98,7 +99,7 @@ class MarginContributionAnalyzer:
         """计算因子池的综合指标"""
         # 只保留池中存在的因子
         available_factors = [f for f in pool if f in data.columns]
-        
+
         if not available_factors:
             return {
                 'ic_mean': 0,
@@ -106,32 +107,32 @@ class MarginContributionAnalyzer:
                 'turnover': 0,
                 'diversity': 0,
             }
-        
+
         # 计算每个因子的IC
         valid_data = data.dropna(subset=available_factors + [label_col])
-        
+
         ic_series_dict = {}
         for f in available_factors:
             ic_series = valid_data.groupby(date_col).apply(
                 lambda x: x[f].corr(x[label_col], method='spearman')
             ).dropna()
             ic_series_dict[f] = ic_series
-        
+
         # 池的平均IC
         all_ics = []
         for ic_s in ic_series_dict.values():
             all_ics.extend(ic_s.values)
-        
+
         ic_mean = np.mean(all_ics) if all_ics else 0
         ic_std = np.std(all_ics) if all_ics else 1
         ic_ir = ic_mean / ic_std if ic_std > 0 else 0
-        
+
         # 因子间相关性 (池的多样性)
         diversity = 1 - self._average_pool_correlation(data, available_factors, date_col)
-        
+
         # 估计换手率 (因子值变化率的均值)
         turnover = self._estimate_pool_turnover(data, available_factors, date_col)
-        
+
         return {
             'ic_mean': ic_mean,
             'ic_ir': ic_ir,
@@ -139,7 +140,7 @@ class MarginContributionAnalyzer:
             'diversity': diversity,
             'factor_count': len(available_factors),
         }
-    
+
     def _average_pool_correlation(
         self,
         data: pd.DataFrame,
@@ -149,10 +150,10 @@ class MarginContributionAnalyzer:
         """计算池内因子平均相关性"""
         if len(factors) < 2:
             return 0
-        
+
         corr_matrix = data[factors].corr()
         n = len(factors)
-        
+
         # 取上三角 (不含对角线)
         total_corr = 0
         count = 0
@@ -160,9 +161,9 @@ class MarginContributionAnalyzer:
             for j in range(i+1, n):
                 total_corr += abs(corr_matrix.iloc[i, j])
                 count += 1
-        
+
         return total_corr / count if count > 0 else 0
-    
+
     def _estimate_pool_turnover(
         self,
         data: pd.DataFrame,
@@ -172,7 +173,7 @@ class MarginContributionAnalyzer:
         """估计池的平均换手率"""
         if len(factors) < 1:
             return 0
-        
+
         turnovers = []
         for f in factors:
             valid = data.dropna(subset=[f])
@@ -180,9 +181,9 @@ class MarginContributionAnalyzer:
                 # 因子值变化率
                 factor_change = valid[f].pct_change().abs().mean()
                 turnovers.append(factor_change)
-        
+
         return np.mean(turnovers) if turnovers else 0
-    
+
     def _make_recommendation(
         self,
         marginal: dict,
@@ -193,11 +194,11 @@ class MarginContributionAnalyzer:
         ic_gain = marginal['ic_change']
         diversity_gain = marginal['pool_diversity_change']
         turnover_penalty = marginal['turnover_change']
-        
+
         # 计算综合得分
         # IC提升权重高，多样性提升中等，换手率增加扣分
         score = ic_gain * 10 + diversity_gain * 5 - turnover_penalty * 100
-        
+
         if score > 0.5:
             return "ADD", "HIGH"
         elif score > 0:
@@ -206,7 +207,7 @@ class MarginContributionAnalyzer:
             return "WATCH", "LOW"
         else:
             return "REJECT", "LOW"
-    
+
     def batch_analyze(
         self,
         candidate_factors: list[str],
@@ -215,11 +216,11 @@ class MarginContributionAnalyzer:
     ) -> pd.DataFrame:
         """批量分析候选因子"""
         results = []
-        
+
         for f in candidate_factors:
             if f not in factor_data.columns:
                 continue
-            
+
             new_pool = current_pool + [f]
             result = self.analyze(
                 factor_name=f,
@@ -227,7 +228,7 @@ class MarginContributionAnalyzer:
                 new_pool=new_pool,
                 factor_data=factor_data,
             )
-            
+
             results.append({
                 'factor': result.factor_name,
                 'baseline_ic': result.baseline_metrics['ic_mean'],
@@ -238,7 +239,7 @@ class MarginContributionAnalyzer:
                 'recommendation': result.recommendation,
                 'priority': result.priority,
             })
-        
+
         return pd.DataFrame(results).sort_values('ic_marginal', ascending=False)
 
 
@@ -252,12 +253,12 @@ class FactorRoleClassifier:
     3. CONDITIONAL: 条件因子 - 仅在特定市场有效
     4. REDUNDANT: 冗余因子 - 与其他因子高度相关
     """
-    
+
     @staticmethod
     def classify(
         factor_name: str,
         pool_metrics: dict,
-        regime_analysis: Optional[dict] = None,
+        regime_analysis: dict | None = None,
     ) -> str:
         """
         分类因子角色
@@ -273,33 +274,33 @@ class FactorRoleClassifier:
         ic_ir = pool_metrics.get('ic_ir', 0)
         ic_mean = pool_metrics.get('ic_mean', 0)
         turnover = pool_metrics.get('turnover', 0)
-        
+
         # 冗余检查
         highly_correlated = pool_metrics.get('highly_correlated_factors', [])
         if highly_correlated:
             return 'REDUNDANT'
-        
+
         # 条件因子检查 (只在某些regime有效)
         if regime_analysis:
             regime_ics = regime_analysis.get('by_trend_regime', {})
             if regime_ics:
                 up_ic = regime_ics.get('uptrend', 0)
                 down_ic = regime_ics.get('downtrend', 0)
-                
+
                 # 在一个方向显著正，另一个方向负或零
                 if (up_ic > 0.02 and down_ic < 0) or (down_ic > 0.02 and up_ic < 0):
                     return 'CONDITIONAL'
-        
+
         # 主因子判断
         if ic_ir > 0.3 and ic_mean > 0.02:
             return 'PRIMARY'
-        
+
         # 辅助因子判断
         if ic_ir > 0.1 or ic_mean > 0.01:
             return 'AUXILIARY'
-        
+
         return 'UNCLASSIFIED'
-    
+
     @staticmethod
     def suggest_pool_composition(
         pool_metrics: dict[str, dict],
@@ -323,10 +324,10 @@ class FactorRoleClassifier:
             'redundant': [],
             'unclassified': [],
         }
-        
+
         for factor_name, metrics in pool_metrics.items():
             role = FactorRoleClassifier.classify(factor_name, metrics)
-            
+
             if role == 'PRIMARY':
                 composition['primary'].append(factor_name)
             elif role == 'AUXILIARY':
@@ -337,12 +338,12 @@ class FactorRoleClassifier:
                 composition['redundant'].append(factor_name)
             else:
                 composition['unclassified'].append(factor_name)
-        
+
         # 按IC排序
         for key in ['primary', 'auxiliary', 'conditional']:
-            metrics_list = [(f, pool_metrics[f].get('ic_ir', 0)) 
+            metrics_list = [(f, pool_metrics[f].get('ic_ir', 0))
                           for f in composition[key]]
             metrics_list.sort(key=lambda x: -x[1])
             composition[key] = [f for f, _ in metrics_list]
-        
+
         return composition

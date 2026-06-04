@@ -6,7 +6,6 @@
 """
 
 from dataclasses import dataclass
-from typing import List
 
 
 @dataclass
@@ -18,16 +17,16 @@ class MacroFactor:
     description: str
     economic_interpretation: str
     lookback: int
-    data_requirement: List[str]
+    data_requirement: list[str]
     formula: str
     ic_direction: str
     update_frequency: str = "daily"
 
 
-MACRO_FACTORS: List[MacroFactor] = [
+MACRO_FACTORS: list[MacroFactor] = [
 
     # ========== 一、利率敏感度 (7个) ==========
-    
+
     MacroFactor(
         name="rate_sensitivity",
         category="rate_sensitivity",
@@ -114,7 +113,7 @@ MACRO_FACTORS: List[MacroFactor] = [
     ),
 
     # ========== 二、通胀敏感度 (5个) ==========
-    
+
     MacroFactor(
         name="inflation_sensitivity",
         category="inflation_sensitivity",
@@ -177,7 +176,7 @@ MACRO_FACTORS: List[MacroFactor] = [
     ),
 
     # ========== 三、汇率敏感度 (5个) ==========
-    
+
     MacroFactor(
         name="fx_sensitivity",
         category="fx_sensitivity",
@@ -240,7 +239,7 @@ MACRO_FACTORS: List[MacroFactor] = [
     ),
 
     # ========== 四、行业轮动 (8个) ==========
-    
+
     MacroFactor(
         name="sector_momentum_20d",
         category="sector_rotation",
@@ -340,12 +339,12 @@ MACRO_FACTORS: List[MacroFactor] = [
 ]
 
 
-def get_macro_factors() -> List[MacroFactor]:
+def get_macro_factors() -> list[MacroFactor]:
     """获取宏观因子列表"""
     return MACRO_FACTORS
 
 
-def get_macro_factor_names() -> List[str]:
+def get_macro_factor_names() -> list[str]:
     """获取所有宏观因子名称"""
     return [f.name for f in MACRO_FACTORS]
 
@@ -357,13 +356,13 @@ def print_macro_factor_summary():
     print("=" * 80)
     print(f"总计: {len(MACRO_FACTORS)}个因子")
     print()
-    
+
     categories = {}
     for f in MACRO_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items(), key=lambda x: -len(x[1])):
         print(f"【{cat}】{len(factors)}个")
         for f in factors[:3]:

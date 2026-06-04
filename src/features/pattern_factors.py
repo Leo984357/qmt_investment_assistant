@@ -9,6 +9,7 @@
 5. 波动率形态 (Volatility Patterns)
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -88,7 +89,7 @@ PATTERN_FACTORS = [
         lookback=1,
         data_requirement=["open", "close", "high", "low"],
     ),
-    
+
     # ===== K线形态 - 双根蜡烛 =====
     PatternSpec(
         name="candle_engulf_bullish",
@@ -162,7 +163,7 @@ PATTERN_FACTORS = [
         lookback=3,
         data_requirement=["open", "close", "high", "low"],
     ),
-    
+
     # ===== 技术图形 - 突破 =====
     PatternSpec(
         name="pattern_breakout_strength",
@@ -200,7 +201,7 @@ PATTERN_FACTORS = [
         lookback=1,
         data_requirement=["close", "resistance_level"],
     ),
-    
+
     # ===== 技术图形 - 趋势 =====
     PatternSpec(
         name="pattern_trendline_slope",
@@ -238,7 +239,7 @@ PATTERN_FACTORS = [
         lookback=60,
         data_requirement=["close", "high", "low"],
     ),
-    
+
     # ===== 技术图形 - 整理形态 =====
     PatternSpec(
         name="pattern_triangle_convergence",
@@ -276,7 +277,7 @@ PATTERN_FACTORS = [
         lookback=60,
         data_requirement=["high", "low", "close"],
     ),
-    
+
     # ===== 技术图形 - 反转形态 =====
     PatternSpec(
         name="pattern_head_shoulders_score",
@@ -314,7 +315,7 @@ PATTERN_FACTORS = [
         lookback=20,
         data_requirement=["close"],
     ),
-    
+
     # ===== 价格形态 - 均线系统 =====
     PatternSpec(
         name="ma_alignment_short",
@@ -370,7 +371,7 @@ PATTERN_FACTORS = [
         lookback=20,
         data_requirement=["close", "upper_band", "lower_band"],
     ),
-    
+
     # ===== 价格形态 - 波动率 =====
     PatternSpec(
         name="volatility_breakout",
@@ -417,7 +418,7 @@ PATTERN_FACTORS = [
         lookback=5,
         data_requirement=["high", "low", "gap_level"],
     ),
-    
+
     # ===== 价格形态 - 动能 =====
     PatternSpec(
         name="momentum_divergence",
@@ -455,7 +456,7 @@ PATTERN_FACTORS = [
         lookback=10,
         data_requirement=["price_change"],
     ),
-    
+
     # ===== 成交量形态 =====
     PatternSpec(
         name="volume_price_divergence",
@@ -511,7 +512,7 @@ PATTERN_FACTORS = [
         lookback=20,
         data_requirement=["volume", "price_change"],
     ),
-    
+
     # ===== 市场广度 =====
     PatternSpec(
         name="breadth_momentum",
@@ -549,7 +550,7 @@ PATTERN_FACTORS = [
         lookback=20,
         data_requirement=["new_high", "new_low"],
     ),
-    
+
     # ===== A股特有形态 =====
     PatternSpec(
         name="limit_up_consecutive",
@@ -623,18 +624,18 @@ def print_pattern_factor_summary():
     print("=" * 100)
     print("形态学因子库汇总")
     print("=" * 100)
-    
+
     categories = {}
     for f in PATTERN_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items()):
         print(f"\n【{cat.upper()}】{len(factors)}个因子")
         for f in factors:
             print(f"  {f.name:<35} {f.description}")
-    
+
     print(f"\n总计: {len(PATTERN_FACTORS)}个形态学因子")
 
 

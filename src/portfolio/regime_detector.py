@@ -5,10 +5,10 @@
 """
 from __future__ import annotations
 
-import pandas as pd
-import numpy as np
 from dataclasses import dataclass
 from enum import Enum
+
+import pandas as pd
 
 
 class MarketRegime(Enum):
@@ -50,22 +50,22 @@ def detect_market_regime(
         (市场状态, 诊断信息)
     """
     config = config or RegimeConfig()
-    
+
     history = market_index.loc[market_index.index <= signal_date].dropna()
     if len(history) < config.long_window + 10:
         return MarketRegime.RANGING, {"reason": "insufficient_data"}
-    
+
     # 计算均线
     short_ma = history.tail(config.short_window).mean()
     long_ma = history.tail(config.long_window).mean()
     current = history.iloc[-1]
-    
+
     # 趋势位置: 价格相对于长期均线
     trend_position = (current / long_ma - 1) if long_ma > 0 else 0
-    
+
     # 均线方向: 使用短期均线与长期均线的比值
     short_vs_long = short_ma / long_ma - 1 if long_ma > 0 else 0
-    
+
     diagnostics = {
         "trend_position": trend_position,
         "short_vs_long": short_vs_long,
@@ -73,30 +73,30 @@ def detect_market_regime(
         "long_ma": long_ma,
         "current": current,
     }
-    
+
     # 阈值
     threshold = 0.03  # 3%作为判断阈值
-    
+
     # 均线方向
     ma_up = short_vs_long > 0.005
     ma_down = short_vs_long < -0.005
-    
+
     # 价格与均线关系
     above_ma = trend_position > threshold
     below_ma = trend_position < -threshold
-    
+
     # 牛市: 在均线上方 + 均线向上
     if above_ma and ma_up:
         return MarketRegime.BULL, diagnostics
-    
+
     # 熊市: 在均线下方 + 均线向下，或者价格在均线下方
     if below_ma or (trend_position < 0 and ma_down):
         return MarketRegime.BEAR, diagnostics
-    
+
     # 价格在均线附近
     if abs(trend_position) < threshold:
         return MarketRegime.RANGING, diagnostics
-    
+
     # 其他情况
     return MarketRegime.TRENDING, diagnostics
 
@@ -147,5 +147,5 @@ def detect_and_apply_regime(
     regime, diagnostics = detect_market_regime(market_index, signal_date, config)
     multiplier = get_regime_exposure_multiplier(regime)
     adjusted_exposure = base_exposure * multiplier
-    
+
     return adjusted_exposure, regime, diagnostics

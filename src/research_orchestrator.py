@@ -9,13 +9,14 @@
 5. 组合构建
 """
 from __future__ import annotations
-import pandas as pd
-import numpy as np
-from dataclasses import dataclass
-from typing import Optional
-from pathlib import Path
+
 import json
+from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 
 @dataclass
@@ -36,24 +37,24 @@ class ResearchResult:
     run_id: str
     timestamp: str
     config: dict
-    
+
     # 因子筛选结果
     raw_pool_size: int = 0
     health_check_passed: int = 0
     conditional_factors: list = None
     rejected_factors: list = None
-    
+
     # 增量结果
     incremental_factors: list = None
     r_squared: float = 0.0
-    
+
     # 冗余分析
     redundant_pairs: list = None
     compressed_pool: list = None
-    
+
     # 综合评分
     composite_score: float = 0.0
-    
+
     def to_dict(self):
         return {
             'run_id': self.run_id,
@@ -71,55 +72,55 @@ class ResearchResult:
 
 class ResearchOrchestrator:
     """研究编排器"""
-    
+
     def __init__(self, config: ResearchConfig):
         self.config = config
         self.run_id = f"research_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.timestamp = datetime.now().isoformat()
         self.results = None
-    
+
     def run_full_pipeline(self) -> ResearchResult:
         """运行完整研究流程"""
         print("=" * 80)
         print(f"策略研究编排器 - {self.run_id}")
         print("=" * 80)
-        
+
         # Step 1: 加载数据
         print("\n【Step 1】加载数据...")
         bars, labels = self._load_data()
-        
+
         # Step 2: 计算因子
         print("\n【Step 2】计算候选因子...")
         factor_panel = self._calculate_factors(bars)
-        
+
         # Step 3: 健康检查
         print("\n【Step 3】单因子健康检查...")
         health_results = self._run_health_check(factor_panel, labels)
-        
+
         # Step 4: 增量分析
         print("\n【Step 4】因子增量分析...")
         incremental_results = self._run_incremental_analysis(factor_panel, labels)
-        
+
         # Step 5: 冗余压缩
         print("\n【Step 5】冗余分析...")
         compression_results = self._run_redundancy_analysis(factor_panel)
-        
+
         # Step 6: 生成最终池
         print("\n【Step 6】生成最终研究池...")
         final_pool = self._generate_final_pool(
-            health_results, 
-            incremental_results, 
+            health_results,
+            incremental_results,
             compression_results
         )
-        
+
         # Step 7: 保存结果
         print("\n【Step 7】保存结果...")
         self._save_results(
-            bars, labels, factor_panel, 
-            health_results, incremental_results, 
+            bars, labels, factor_panel,
+            health_results, incremental_results,
             compression_results, final_pool
         )
-        
+
         # 构建结果对象
         self.results = ResearchResult(
             run_id=self.run_id,
@@ -142,13 +143,13 @@ class ResearchOrchestrator:
                 health_results, incremental_results, compression_results
             ),
         )
-        
+
         print("\n" + "=" * 80)
         print("研究完成!")
         print("=" * 80)
-        
+
         return self.results
-    
+
     def _load_data(self):
         """加载数据"""
         bars = pd.read_parquet(self.config.data_path)
@@ -158,20 +159,20 @@ class ResearchOrchestrator:
         else:
             labels = self._generate_labels(bars)
         return bars, labels
-    
+
     def _generate_labels(self, bars: pd.DataFrame) -> pd.DataFrame:
         """生成标签"""
         bars = bars.sort_values(['symbol', 'trade_date'])
         bars['fwd_return_20d'] = bars.groupby('symbol')['adj_close'].shift(-20)
         bars['fwd_return_20d'] = bars.groupby('symbol')['fwd_return_20d'].pct_change()
         return bars[['trade_date', 'symbol', 'fwd_return_20d']].dropna()
-    
+
     def _calculate_factors(self, bars: pd.DataFrame) -> pd.DataFrame:
         """计算候选因子"""
         from src.features.factor_calculator import FactorCalculator
-        
+
         calc = FactorCalculator(bars)
-        
+
         # 核心候选因子
         factor_configs = [
             ('mom250', 'mom', {'window': 250}),
@@ -198,34 +199,34 @@ class ResearchOrchestrator:
             ('price_to_ma60', 'price_to_ma', {'window': 60}),
             ('candle_body_ratio', 'candle_body_ratio', {}),
         ]
-        
+
         panel = bars[['trade_date', 'symbol']].copy()
-        
+
         for name, method, kwargs in factor_configs:
             try:
                 df = calc.calculate(method, **kwargs)
                 df = df.rename(columns={'value': name})
                 panel = panel.merge(df, on=['trade_date', 'symbol'], how='left')
-            except Exception as e:
+            except Exception:
                 print(f"   {name}: FAILED")
-        
+
         return panel
-    
+
     def _run_health_check(
-        self, 
-        panel: pd.DataFrame, 
+        self,
+        panel: pd.DataFrame,
         labels: pd.DataFrame
     ) -> list[dict]:
         """运行健康检查"""
         from src.features.factor_health_check import batch_check
-        
+
         panel = panel.merge(labels, on=['trade_date', 'symbol'], how='left')
-        
-        factor_names = [c for c in panel.columns 
+
+        factor_names = [c for c in panel.columns
                        if c not in ['trade_date', 'symbol', 'fwd_return_20d']]
-        
+
         reports = batch_check(panel, factor_names)
-        
+
         results = []
         for r in reports:
             results.append({
@@ -238,51 +239,51 @@ class ResearchOrchestrator:
                 'avg_turnover': r.avg_turnover,
                 'reasons': r.reasons_to_reject,
             })
-        
+
         return results
-    
+
     def _run_incremental_analysis(
-        self, 
-        panel: pd.DataFrame, 
+        self,
+        panel: pd.DataFrame,
         labels: pd.DataFrame
     ) -> dict:
         """增量分析"""
         from sklearn.linear_model import LinearRegression
         from sklearn.preprocessing import StandardScaler
-        
+
         panel = panel.merge(labels, on=['trade_date', 'symbol'], how='left')
-        
-        factor_names = [c for c in panel.columns 
+
+        factor_names = [c for c in panel.columns
                        if c not in ['trade_date', 'symbol', 'fwd_return_20d']]
-        
+
         # 清理数据
         for col in factor_names + ['fwd_return_20d']:
             if col in panel.columns:
                 panel[col] = panel[col].replace([np.inf, -np.inf], np.nan)
-        
+
         valid = panel.dropna(subset=['fwd_return_20d'])
-        
+
         X = valid[factor_names].fillna(0).values
         y = valid['fwd_return_20d'].values
-        
+
         # 计算IC
         ic_results = {}
         for i, name in enumerate(factor_names):
             ic = pd.Series(X[:, i]).corr(pd.Series(y), method='spearman')
             ic_results[name] = ic
-        
+
         # 按IC排序
         sorted_factors = sorted(ic_results.items(), key=lambda x: x[1], reverse=True)
         positive_factors = [f[0] for f in sorted_factors if f[1] > 0]
-        
+
         # 逐步回归
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
-        
+
         lr = LinearRegression()
         lr.fit(X_scaled, y)
         r_squared = lr.score(X_scaled, y)
-        
+
         return {
             'ic_results': ic_results,
             'sorted_by_ic': sorted_factors,
@@ -290,19 +291,19 @@ class ResearchOrchestrator:
             'r_squared': r_squared,
             'selected': positive_factors[:5],  # 选择前5个正向因子
         }
-    
+
     def _run_redundancy_analysis(self, panel: pd.DataFrame) -> dict:
         """冗余分析"""
-        factor_names = [c for c in panel.columns 
+        factor_names = [c for c in panel.columns
                        if c not in ['trade_date', 'symbol']]
-        
+
         # 清理数据
         for col in factor_names:
             if col in panel.columns:
                 panel[col] = panel[col].replace([np.inf, -np.inf], np.nan)
-        
+
         corr = panel[factor_names].corr()
-        
+
         high_corr_pairs = []
         for i in range(len(factor_names)):
             for j in range(i+1, len(factor_names)):
@@ -312,12 +313,12 @@ class ResearchOrchestrator:
                         'factor2': factor_names[j],
                         'correlation': corr.iloc[i, j],
                     })
-        
+
         return {
             'correlation_matrix': corr,
             'pairs': high_corr_pairs,
         }
-    
+
     def _generate_final_pool(
         self,
         health_results: list,
@@ -327,13 +328,13 @@ class ResearchOrchestrator:
         """生成最终研究池"""
         # 从健康检查获取条件通过的
         conditional = [r['factor'] for r in health_results if r['status'] == 'conditional']
-        
+
         # 添加增量分析中有效的
         selected = incremental_results['selected']
-        
+
         # 合并去重
         final_pool = list(set(conditional + selected))
-        
+
         # 排除高冗余的
         high_corr = set()
         for pair in compression_results['pairs']:
@@ -345,11 +346,11 @@ class ResearchOrchestrator:
                     high_corr.add(pair['factor1'])
                 else:
                     high_corr.add(pair['factor2'])
-        
+
         final_pool = [f for f in final_pool if f not in high_corr]
-        
+
         return final_pool
-    
+
     def _calculate_composite_score(
         self,
         health_results: list,
@@ -361,10 +362,10 @@ class ResearchOrchestrator:
         passed = len([r for r in health_results if r['status'] in ['pass', 'conditional']])
         avg_ic = np.mean([r['ic_mean'] for r in health_results if r['ic_mean'] > 0])
         redundancy_penalty = len(compression_results['pairs']) * 0.1
-        
+
         score = passed * 10 + avg_ic * 100 - redundancy_penalty
         return score
-    
+
     def _save_results(
         self,
         bars: pd.DataFrame,
@@ -378,25 +379,25 @@ class ResearchOrchestrator:
         """保存结果"""
         output_dir = Path(self.config.output_path) / self.run_id
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # 保存原始数据
         factor_panel.to_parquet(output_dir / "factor_panel.parquet", index=False)
-        
+
         # 保存健康检查结果
         pd.DataFrame(health_results).to_csv(
             output_dir / "health_check.csv", index=False
         )
-        
+
         # 保存增量分析结果
         pd.DataFrame(incremental_results['sorted_by_ic'], columns=['factor', 'ic']).to_csv(
             output_dir / "incremental_analysis.csv", index=False
         )
-        
+
         # 保存最终池
         pd.DataFrame({'factor': final_pool}).to_csv(
             output_dir / "final_pool.csv", index=False
         )
-        
+
         # 保存元数据
         meta = {
             'run_id': self.run_id,
@@ -406,18 +407,18 @@ class ResearchOrchestrator:
         }
         with open(output_dir / "metadata.json", 'w') as f:
             json.dump(meta, f, indent=2)
-        
+
         print(f"   结果已保存到: {output_dir}")
 
 
-def run_research(config: Optional[ResearchConfig] = None):
+def run_research(config: ResearchConfig | None = None):
     """便捷运行函数"""
     if config is None:
         config = ResearchConfig(
             data_path='data/bronze/daily_bar.parquet',
             output_path='artifacts/research',
         )
-    
+
     orchestrator = ResearchOrchestrator(config)
     return orchestrator.run_full_pipeline()
 

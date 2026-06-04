@@ -29,7 +29,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -70,10 +70,10 @@ class ExperimentMetrics:
     num_trades: int
     win_rate: float
     excess_return: float
-    
+
     def to_dict(self) -> dict:
         return asdict(self)
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> ExperimentMetrics:
         return cls(**data)
@@ -98,8 +98,8 @@ class ExperimentArtifact:
     backtest_end: str
     notes: str = ""
     tags: list[str] = field(default_factory=list)
-    parent_run_id: Optional[str] = None
-    
+    parent_run_id: str | None = None
+
     def to_dict(self) -> dict:
         return {
             'run_id': self.run_id,
@@ -120,23 +120,23 @@ class ExperimentArtifact:
             'tags': self.tags,
             'parent_run_id': self.parent_run_id,
         }
-    
+
     def to_markdown(self) -> str:
         lines = [
             f"# Experiment Artifact: {self.experiment_name}",
-            f"",
+            "",
             f"**Run ID:** `{self.run_id}`",
             f"**Timestamp:** {self.timestamp}",
             f"**Config Hash:** `{self.config_hash[:16]}...`",
-            f"",
-            f"## Gate Status",
-            f"",
+            "",
+            "## Gate Status",
+            "",
             f"{'✅ PASSED' if self.gate_passed else '❌ FAILED'} (Score: {self.gate_score:.1f}/100)",
-            f"",
-            f"## Key Metrics",
-            f"",
-            f"| Metric | Value |",
-            f"|--------|-------|",
+            "",
+            "## Key Metrics",
+            "",
+            "| Metric | Value |",
+            "|--------|-------|",
             f"| Total Return | {self.metrics.total_return:.2%} |",
             f"| Sharpe Ratio | {self.metrics.sharpe_ratio:.3f} |",
             f"| Max Drawdown | {self.metrics.max_drawdown:.2%} |",
@@ -148,31 +148,31 @@ class ExperimentArtifact:
             f"| Total Cost | ¥{self.metrics.total_cost:,.0f} |",
             f"| Win Rate | {self.metrics.win_rate:.1%} |",
             f"| Excess Return | {self.metrics.excess_return:.2%} |",
-            f"",
-            f"## Configuration",
-            f"",
+            "",
+            "## Configuration",
+            "",
             f"- **Features:** {', '.join(self.feature_names)}",
             f"- **Model:** {self.model_family}",
             f"- **Period:** {self.backtest_start} to {self.backtest_end}",
             f"- **Research Contract:** {self.research_contract_version}",
-            f"",
+            "",
         ]
-        
+
         if self.tags:
-            lines.append(f"## Tags")
-            lines.append(f"")
+            lines.append("## Tags")
+            lines.append("")
             for tag in self.tags:
                 lines.append(f"- {tag}")
             lines.append("")
-        
+
         if self.notes:
-            lines.append(f"## Notes")
-            lines.append(f"")
+            lines.append("## Notes")
+            lines.append("")
             lines.append(self.notes)
             lines.append("")
-        
+
         return "\n".join(lines)
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> ExperimentArtifact:
         data = dict(data)
@@ -200,11 +200,11 @@ def create_artifact_from_experiment(
     nav: pd.DataFrame,
     trades: pd.DataFrame,
     rank_ic: pd.DataFrame,
-    benchmark_nav: Optional[pd.DataFrame],
+    benchmark_nav: pd.DataFrame | None,
     gate_result: Any,
     notes: str = "",
-    tags: Optional[list[str]] = None,
-    parent_run_id: Optional[str] = None,
+    tags: list[str] | None = None,
+    parent_run_id: str | None = None,
 ) -> ExperimentArtifact:
     """从实验结果创建工件"""
     # 计算哈希
@@ -215,14 +215,14 @@ def create_artifact_from_experiment(
         spec.data.start_date,
         spec.data.end_date,
     )
-    
+
     # 计算指标
     metrics = _compute_metrics(nav, trades, rank_ic, benchmark_nav)
-    
+
     # 获取回测时间范围
     backtest_start = nav['trade_date'].min() if not nav.empty else ""
     backtest_end = nav['trade_date'].max() if not nav.empty else ""
-    
+
     return ExperimentArtifact(
         run_id=str(uuid.uuid4())[:8],
         experiment_name=experiment_name,
@@ -248,7 +248,7 @@ def _compute_metrics(
     nav: pd.DataFrame,
     trades: pd.DataFrame,
     rank_ic: pd.DataFrame,
-    benchmark_nav: Optional[pd.DataFrame],
+    benchmark_nav: pd.DataFrame | None,
 ) -> ExperimentMetrics:
     """计算实验关键指标"""
     # 净值指标
@@ -267,26 +267,26 @@ def _compute_metrics(
             win_rate=0.0,
             excess_return=0.0,
         )
-    
+
     nav_series = nav.set_index('trade_date')['nav']
     total_return = nav_series.iloc[-1] / nav_series.iloc[0] - 1 if len(nav_series) > 1 else 0.0
-    
+
     # 最大回撤
     cummax = nav_series.cummax()
     drawdown = (nav_series - cummax) / cummax
     max_drawdown = abs(drawdown.min())
-    
+
     # 日收益统计
     daily_returns = nav_series.pct_change().dropna()
     annual_return = daily_returns.mean() * 252
     annual_volatility = daily_returns.std() * (252 ** 0.5)
     sharpe_ratio = annual_return / annual_volatility if annual_volatility > 0 else 0.0
-    
+
     # IC指标
     ic_mean = rank_ic['rank_ic'].mean() if not rank_ic.empty else 0.0
     ic_std = rank_ic['rank_ic'].std() if not rank_ic.empty else 1.0
     ic_ir = ic_mean / ic_std if ic_std > 0 else 0.0
-    
+
     # 交易指标 - 支持多种字段名
     if not trades.empty:
         # cost 或 fee
@@ -300,7 +300,7 @@ def _compute_metrics(
     else:
         total_cost = 0.0
         num_trades = 0
-    
+
     # 估算平均换手率 - 优先使用nav中的turnover字段
     if not nav.empty and 'turnover' in nav.columns:
         avg_turnover = nav['turnover'].mean()
@@ -323,13 +323,13 @@ def _compute_metrics(
             avg_turnover = 0.0
     else:
         avg_turnover = 0.0
-    
+
     # 胜率
     if len(daily_returns) > 0:
         win_rate = (daily_returns > 0).sum() / len(daily_returns)
     else:
         win_rate = 0.0
-    
+
     # 超额收益
     if benchmark_nav is not None and not benchmark_nav.empty:
         strategy_ret = total_return
@@ -347,7 +347,7 @@ def _compute_metrics(
             excess_return = strategy_ret - benchmark_ret
     else:
         excess_return = 0.0
-    
+
     return ExperimentMetrics(
         total_return=float(total_return),
         sharpe_ratio=float(sharpe_ratio),
@@ -368,28 +368,28 @@ def save_artifact(artifact: ExperimentArtifact, output_dir: Path) -> Path:
     """保存工件到文件"""
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # 保存JSON
     json_path = output_dir / f"{artifact.run_id}.json"
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(artifact.to_dict(), f, ensure_ascii=False, indent=2)
-    
+
     # 保存Markdown
     md_path = output_dir / f"{artifact.run_id}.md"
     with open(md_path, 'w', encoding='utf-8') as f:
         f.write(artifact.to_markdown())
-    
+
     # 保存YAML (需要转换 numpy/pandas 类型为原生类型)
     yaml_path = output_dir / f"{artifact.run_id}.yaml"
     with open(yaml_path, 'w', encoding='utf-8') as f:
         yaml.safe_dump(_to_native(artifact.to_dict()), f, allow_unicode=True, sort_keys=False)
-    
+
     return json_path
 
 
 def load_artifact(path: Path) -> ExperimentArtifact:
     """加载工件"""
-    with open(path, 'r', encoding='utf-8') as f:
+    with open(path, encoding='utf-8') as f:
         data = json.load(f)
     return ExperimentArtifact.from_dict(data)
 

@@ -5,10 +5,11 @@ IC Decay分析和因子中性化
 2. Neutralization: raw / industry-neutral / size-neutral / 双重中性
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Optional, Literal
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
 
 
@@ -16,22 +17,22 @@ from scipy.optimize import curve_fit
 class ICDecayResult:
     """IC Decay分析结果"""
     factor_name: str
-    
+
     # 不同持有期的IC
     ic_by_horizon: dict[int, float]  # {5: 0.02, 10: 0.03, 20: 0.025, 40: 0.015}
-    
+
     # 半衰期
     half_life: int  # 天
-    
+
     # Decay速率
     decay_rate: float
-    
+
     # 推荐调仓周期
     recommended_rebalance: int
-    
+
     # 置信度
     confidence: float  # 0-1
-    
+
     def to_dict(self) -> dict:
         return {
             'factor': self.factor_name,
@@ -60,10 +61,10 @@ class ICDecayAnalyzer:
     print(f"半衰期: {result.half_life}天")
     print(f"推荐调仓周期: {result.recommended_rebalance}天")
     """
-    
+
     def __init__(self):
         self._cache: dict[str, ICDecayResult] = {}
-    
+
     def analyze(
         self,
         data: pd.DataFrame,
@@ -86,10 +87,10 @@ class ICDecayAnalyzer:
             ICDecayResult
         """
         ic_by_horizon = {}
-        
+
         for h in horizons:
             label_col = f'{label_prefix}{h}d'
-            
+
             if label_col in data.columns:
                 # 计算IC
                 valid = data[[date_col, factor_name, label_col]].dropna()
@@ -98,16 +99,16 @@ class ICDecayAnalyzer:
                         lambda x: x[factor_name].corr(x[label_col], method='spearman')
                     ).dropna()
                     ic_by_horizon[h] = ic_series.mean()
-        
+
         # 计算半衰期
         half_life, decay_rate = self._estimate_half_life(ic_by_horizon)
-        
+
         # 推荐调仓周期
         recommended = self._recommend_rebalance(ic_by_horizon, half_life)
-        
+
         # 置信度 (基于IC序列的稳定性)
         confidence = self._estimate_confidence(ic_by_horizon)
-        
+
         result = ICDecayResult(
             factor_name=factor_name,
             ic_by_horizon=ic_by_horizon,
@@ -116,32 +117,32 @@ class ICDecayAnalyzer:
             recommended_rebalance=recommended,
             confidence=confidence,
         )
-        
+
         self._cache[factor_name] = result
         return result
-    
+
     def _estimate_half_life(
-        self, 
+        self,
         ic_by_horizon: dict[int, float]
     ) -> tuple[int, float]:
         """估计半衰期"""
         if len(ic_by_horizon) < 2:
             return 20, 0.0
-        
+
         # 按horizon排序
         sorted_items = sorted(ic_by_horizon.items())
         horizons = np.array([h for h, _ in sorted_items])
         ics = np.array([ic for _, ic in sorted_items])
-        
+
         # 初始IC
         ic0 = ics[0] if horizons[0] == 1 else ics[np.argmax(horizons == horizons.min())]
         if ic0 <= 0:
             return 20, 0.0
-        
+
         # 指数衰减拟合
         def decay_func(x, k):
             return ic0 * np.exp(-k * x)
-        
+
         try:
             popt, _ = curve_fit(decay_func, horizons, ics, p0=[0.05], maxfev=1000)
             k = popt[0]
@@ -163,46 +164,46 @@ class ICDecayAnalyzer:
             else:
                 half_life = 20
                 decay_rate = 0.0
-        
+
         return max(5, min(half_life, 120)), decay_rate
-    
+
     def _recommend_rebalance(
-        self, 
-        ic_by_horizon: dict[int, float], 
+        self,
+        ic_by_horizon: dict[int, float],
         half_life: int
     ) -> int:
         """推荐调仓周期"""
         if not ic_by_horizon:
             return 10
-        
+
         # 找到IC下降到峰值50%的持有期
         max_ic = max(ic_by_horizon.values())
         half_ic = max_ic * 0.5
-        
+
         for h in sorted(ic_by_horizon.keys()):
             if ic_by_horizon[h] <= half_ic:
                 # 建议调仓周期为半衰期的50-80%
                 return max(5, int(h * 0.6))
-        
+
         # 如果没有下降到50%，用半衰期
         return max(5, min(int(half_life * 0.7), 60))
-    
+
     def _estimate_confidence(self, ic_by_horizon: dict[int, float]) -> float:
         """估计置信度"""
         if len(ic_by_horizon) < 3:
             return 0.3
-        
+
         # 基于IC是否单调递减
         ics = list(ic_by_horizon.values())
         is_monotonic = all(ics[i] >= ics[i+1] * 0.9 for i in range(len(ics)-1))
-        
+
         # 基于IC是否都为正
         all_positive = all(ic > 0 for ic in ics)
-        
+
         # 基于IC绝对值
         avg_ic = np.mean(ics)
         has_signal = avg_ic > 0.01
-        
+
         confidence = 0.5
         if is_monotonic:
             confidence += 0.2
@@ -210,9 +211,9 @@ class ICDecayAnalyzer:
             confidence += 0.2
         if has_signal:
             confidence += 0.1
-        
+
         return min(1.0, confidence)
-    
+
     def batch_analyze(
         self,
         data: pd.DataFrame,
@@ -244,15 +245,15 @@ class FactorNeutralizer:
     # 双重中性化
     double_neutral = neutralizer.double_neutral(factor, industry, market_cap)
     """
-    
+
     def __init__(self):
         pass
-    
+
     def industry_neutral(
         self,
         factor: pd.Series,
         industry: pd.Series,
-        style_factors: Optional[pd.DataFrame] = None,
+        style_factors: pd.DataFrame | None = None,
     ) -> pd.Series:
         """
         行业中性化
@@ -271,11 +272,11 @@ class FactorNeutralizer:
             'factor': factor,
             'industry': industry,
         })
-        
+
         if style_factors is not None:
             for col in style_factors.columns:
                 df[col] = style_factors[col]
-        
+
         # 按行业分组回归
         residuals = []
         for ind, group in df.groupby('industry', observed=True):
@@ -286,11 +287,11 @@ class FactorNeutralizer:
             else:
                 group['factor_neutral'] = group['factor']
             residuals.append(group[['factor_neutral']])
-        
+
         result = pd.concat(residuals)
         result = result.reindex(factor.index)
         return result['factor_neutral']
-    
+
     def size_neutral(
         self,
         factor: pd.Series,
@@ -314,16 +315,16 @@ class FactorNeutralizer:
             'factor': factor,
             'market_cap': market_cap,
         })
-        
+
         # 按市值分组
         df['size_group'] = pd.qcut(df['market_cap'], n_bins, labels=False, duplicates='drop')
-        
+
         # 组内均值调整
         group_means = df.groupby('size_group')['factor'].transform('mean')
         df['factor_neutral'] = df['factor'] - group_means
-        
+
         return df['factor_neutral']
-    
+
     def double_neutral(
         self,
         factor: pd.Series,
@@ -345,12 +346,12 @@ class FactorNeutralizer:
         """
         # 先行业中性
         neutral = self.industry_neutral(factor, industry)
-        
+
         # 再Size中性
         neutral = self.size_neutral(neutral, market_cap)
-        
+
         return neutral
-    
+
     def style_neutral(
         self,
         factor: pd.Series,
@@ -373,21 +374,21 @@ class FactorNeutralizer:
         })
         for col in style_df.columns:
             df[col] = style_df[col].values
-        
+
         # 横截面回归
         from sklearn.linear_model import LinearRegression
-        
+
         X = df[style_df.columns].values
         y = df['factor'].values
-        
+
         # 处理缺失值
         valid_mask = ~(np.isnan(X).any(axis=1) | np.isnan(y))
         if valid_mask.sum() < 50:
             return factor
-        
+
         X_valid = X[valid_mask]
         y_valid = y[valid_mask]
-        
+
         try:
             reg = LinearRegression()
             reg.fit(X_valid, y_valid)
@@ -395,7 +396,7 @@ class FactorNeutralizer:
             residuals = y - y_pred
         except:
             residuals = y
-        
+
         result = pd.Series(residuals, index=factor.index)
         return result
 
@@ -413,32 +414,32 @@ def analyze_factor_neutralization(
         dict: 包含raw IC, 行业中性IC, Size中性IC, 双重中性IC
     """
     neutralizer = FactorNeutralizer()
-    
+
     factor = data[factor_name]
     industry = data.get(industry_col)
     market_cap = data.get(market_cap_col)
-    
+
     result = {
         'factor': factor_name,
         'raw_ic': factor.corr(data['fwd_return_20d'], method='spearman') if 'fwd_return_20d' in data.columns else None,
     }
-    
+
     if industry is not None:
         industry_neutral = neutralizer.industry_neutral(factor, industry)
         if 'fwd_return_20d' in data.columns:
             result['industry_neutral_ic'] = industry_neutral.corr(data['fwd_return_20d'], method='spearman')
         result['industry_neutral'] = industry_neutral
-    
+
     if market_cap is not None:
         size_neutral = neutralizer.size_neutral(factor, market_cap)
         if 'fwd_return_20d' in data.columns:
             result['size_neutral_ic'] = size_neutral.corr(data['fwd_return_20d'], method='spearman')
         result['size_neutral'] = size_neutral
-    
+
     if industry is not None and market_cap is not None:
         double_neutral = neutralizer.double_neutral(factor, industry, market_cap)
         if 'fwd_return_20d' in data.columns:
             result['double_neutral_ic'] = double_neutral.corr(data['fwd_return_20d'], method='spearman')
         result['double_neutral'] = double_neutral
-    
+
     return result

@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from src.core.module_registry import ModuleMetadata
 
+from .adaptive_weighted import AdaptiveICWeightedModel, AdaptiveWeightConfig, FactorDecayConfig
 from .lightgbm_cross_sectional import CrossSectionalLightGBMModel
 from .registry import ModelRegistry, register_model
 from .ridge_regression import RidgeRegressionModel
 from .simple_average import SimpleAverageModel
 from .weighted_average import ICWeightedAverageModel
-from .adaptive_weighted import AdaptiveICWeightedModel, AdaptiveWeightConfig, FactorDecayConfig, RegimeWeightConfig
 
 
 def default_model_registry() -> ModelRegistry:

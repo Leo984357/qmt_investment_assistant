@@ -23,8 +23,8 @@ Usage:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Callable
 from enum import Enum
+
 import pandas as pd
 
 
@@ -43,26 +43,26 @@ class SupportFactorConfig:
     """Support因子配置"""
     name: str
     description: str
-    
+
     # 基础信息
     base_factor: str  # 基于哪个因子计算
     calculation: str  # 'ratio', 'diff', 'product', 'regime_switch', 'zscore_rank'
-    
+
     # 交互因子
-    interaction_factors: List[str] = None  # 交互的因子列表
-    
+    interaction_factors: list[str] = None  # 交互的因子列表
+
     # 激活条件
-    activation_regimes: List[MarketRegime] = None  # 在哪些市场状态下激活
-    activation_conditions: Dict[str, float] = None  # 其他激活条件
-    
+    activation_regimes: list[MarketRegime] = None  # 在哪些市场状态下激活
+    activation_conditions: dict[str, float] = None  # 其他激活条件
+
     # 单独效果
     solo_ic: float = 0.01  # 单独使用时的IC
     solo_monotonicity: float = 0.3  # 单独使用时的单调性
-    
+
     # 组合效果
     combined_ic_delta: float = 0.005  # 与主因子组合后的IC提升
     combined_shap_importance: float = 0.05  # SHAP重要性
-    
+
     # 状态
     status: str = "candidate"  # candidate, research, production
     notes: str = ""
@@ -84,7 +84,7 @@ SUPPORT_FACTORS = {
         combined_shap_importance=0.08,
         notes="动量市场下，低估值+动量组合有效",
     ),
-    
+
     "roe_x_revenue_growth": SupportFactorConfig(
         name="roe_x_revenue_growth",
         description="ROE x 营收增长：盈利质量",
@@ -98,7 +98,7 @@ SUPPORT_FACTORS = {
         combined_shap_importance=0.06,
         notes="牛市环境下，量价齐升更有效",
     ),
-    
+
     # ========== 质量类条件 ==========
     "quality_score": SupportFactorConfig(
         name="quality_score",
@@ -113,7 +113,7 @@ SUPPORT_FACTORS = {
         combined_shap_importance=0.12,
         notes="高波动市场下，质量因子更可靠",
     ),
-    
+
     "margin_stability": SupportFactorConfig(
         name="margin_stability",
         description="利润率稳定性：operating_margin / gross_margin",
@@ -126,7 +126,7 @@ SUPPORT_FACTORS = {
         combined_shap_importance=0.04,
         notes="护城河稳定性的代理",
     ),
-    
+
     # ========== 成长类条件 ==========
     "growth_quality": SupportFactorConfig(
         name="growth_quality",
@@ -141,7 +141,7 @@ SUPPORT_FACTORS = {
         combined_shap_importance=0.07,
         notes="真成长 vs 伪成长",
     ),
-    
+
     "growth_x_leverage": SupportFactorConfig(
         name="growth_x_leverage",
         description="去杠杆成长：增长且低负债",
@@ -155,7 +155,7 @@ SUPPORT_FACTORS = {
         combined_shap_importance=0.05,
         notes="熊市下，去杠杆的公司更安全",
     ),
-    
+
     # ========== 动量类条件 ==========
     "momentum_quality": SupportFactorConfig(
         name="momentum_quality",
@@ -170,7 +170,7 @@ SUPPORT_FACTORS = {
         combined_shap_importance=0.15,
         notes="趋势市场下，强者恒强",
     ),
-    
+
     "momentum_reversal": SupportFactorConfig(
         name="momentum_reversal",
         description="动量反转：短期反转因子调整",
@@ -184,7 +184,7 @@ SUPPORT_FACTORS = {
         combined_shap_importance=0.10,
         notes="高波动市场，短期反转有效",
     ),
-    
+
     # ========== 市场状态开关 ==========
     "market_beta_adjusted_roe": SupportFactorConfig(
         name="market_beta_adjusted_roe",
@@ -199,7 +199,7 @@ SUPPORT_FACTORS = {
         combined_shap_importance=0.09,
         notes="高Beta环境下，调整后更稳定",
     ),
-    
+
     "volatility_adjusted_momentum": SupportFactorConfig(
         name="volatility_adjusted_momentum",
         description="波动率调整动量：去除波动率影响",
@@ -217,9 +217,9 @@ SUPPORT_FACTORS = {
 
 
 def get_support_factors(
-    status_filter: Optional[str] = None,
-    regime_filter: Optional[MarketRegime] = None,
-) -> Dict[str, SupportFactorConfig]:
+    status_filter: str | None = None,
+    regime_filter: MarketRegime | None = None,
+) -> dict[str, SupportFactorConfig]:
     """
     获取support因子
     
@@ -231,26 +231,26 @@ def get_support_factors(
         {name: config} 字典
     """
     result = {}
-    
+
     for name, config in SUPPORT_FACTORS.items():
         # 状态过滤
         if status_filter and config.status != status_filter:
             continue
-        
+
         # 市场状态过滤
         if regime_filter:
             if regime_filter not in (config.activation_regimes or []):
                 continue
-        
+
         result[name] = config
-    
+
     return result
 
 
 def get_factors_for_regime(
     regime: MarketRegime,
     min_combined_delta: float = 0.005,
-) -> List[str]:
+) -> list[str]:
     """
     获取特定市场状态下应该激活的因子
     
@@ -258,12 +258,12 @@ def get_factors_for_regime(
         因子名称列表
     """
     result = []
-    
+
     for name, config in SUPPORT_FACTORS.items():
         if regime in (config.activation_regimes or []):
             if config.combined_ic_delta >= min_combined_delta:
                 result.append(name)
-    
+
     return result
 
 
@@ -284,39 +284,39 @@ def calculate_support_factor(
     config = SUPPORT_FACTORS.get(factor_name)
     if config is None:
         raise ValueError(f"Unknown support factor: {factor_name}")
-    
+
     base = df[config.base_factor]
-    
+
     if config.calculation == "ratio" and config.interaction_factors:
         interact = df[config.interaction_factors[0]]
         return base / (interact + 1e-8)
-    
+
     elif config.calculation == "product" and config.interaction_factors:
         result = base.copy()
         for f in config.interaction_factors:
             result = result * df[f]
         return result
-    
+
     elif config.calculation == "diff" and config.interaction_factors:
         interact = df[config.interaction_factors[0]]
         return base - interact
-    
+
     elif config.calculation == "zscore_rank":
         ranked = base.rank(pct=True)
         return (ranked - ranked.mean()) / (ranked.std() + 1e-8)
-    
+
     elif config.calculation == "regime_switch":
         # Regime switch: 根据市场状态调整因子权重
         interact = df.get(config.interaction_factors[0], 1.0)
         return base / (interact + 1.0)
-    
+
     return base
 
 
 def get_support_factor_summary() -> pd.DataFrame:
     """获取support因子汇总表"""
     rows = []
-    
+
     for name, config in SUPPORT_FACTORS.items():
         rows.append({
             'name': name,
@@ -330,5 +330,5 @@ def get_support_factor_summary() -> pd.DataFrame:
             'status': config.status,
             'regimes': ','.join([r.value for r in (config.activation_regimes or [])]),
         })
-    
+
     return pd.DataFrame(rows)

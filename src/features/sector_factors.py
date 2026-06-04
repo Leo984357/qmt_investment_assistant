@@ -10,6 +10,7 @@
 6. 宏观敏感度
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 
@@ -65,7 +66,7 @@ SECTOR_FACTORS = [
         lookback=273,
         data_requirement=["sector_index_return"],
     ),
-    
+
     # ===== 行业相对强弱 =====
     SectorFactorSpec(
         name="sector_rs_1m",
@@ -99,7 +100,7 @@ SECTOR_FACTORS = [
         lookback=252,
         data_requirement=["sector_return", "market_return"],
     ),
-    
+
     # ===== 行业趋势强度 =====
     SectorFactorSpec(
         name="sector_trend_strength",
@@ -125,7 +126,7 @@ SECTOR_FACTORS = [
         lookback=252,
         data_requirement=["sector_return"],
     ),
-    
+
     # ===== 行业轮动信号 =====
     SectorFactorSpec(
         name="sector_leading_lagging",
@@ -159,7 +160,7 @@ SECTOR_FACTORS = [
         lookback=60,
         data_requirement=["stock_low", "sector_membership"],
     ),
-    
+
     # ===== 产业链动量 =====
     SectorFactorSpec(
         name="industry_chain_mom_upstream",
@@ -193,7 +194,7 @@ SECTOR_FACTORS = [
         lookback=126,
         data_requirement=["upstream_return", "downstream_return"],
     ),
-    
+
     # ===== 宏观敏感度 =====
     SectorFactorSpec(
         name="macro_beta_gdp",
@@ -235,7 +236,7 @@ SECTOR_FACTORS = [
         lookback=252,
         data_requirement=["sector_return", "sentiment_index"],
     ),
-    
+
     # ===== 资金流因子 =====
     SectorFactorSpec(
         name="sector_flow_1w",
@@ -277,7 +278,7 @@ SECTOR_FACTORS = [
         lookback=21,
         data_requirement=["sector_margin_balance"],
     ),
-    
+
     # ===== 行业估值 =====
     SectorFactorSpec(
         name="sector_pe",
@@ -311,7 +312,7 @@ SECTOR_FACTORS = [
         lookback=60,
         data_requirement=["sector_pe", "sector_earning_growth"],
     ),
-    
+
     # ===== 行业拥挤度 =====
     SectorFactorSpec(
         name="sector_crowding",
@@ -337,7 +338,7 @@ SECTOR_FACTORS = [
         lookback=21,
         data_requirement=["daily_sector_return"],
     ),
-    
+
     # ===== 分析师行业偏好 =====
     SectorFactorSpec(
         name="sector_analyst_rating",
@@ -363,7 +364,7 @@ SECTOR_FACTORS = [
         lookback=60,
         data_requirement=["earnings_revision_by_sector"],
     ),
-    
+
     # ===== A股特有 =====
     SectorFactorSpec(
         name="sector_limit_up_count",
@@ -431,18 +432,18 @@ def print_sector_factor_summary():
     print("=" * 100)
     print("行业轮动因子库汇总")
     print("=" * 100)
-    
+
     categories = {}
     for f in SECTOR_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items()):
         print(f"\n【{cat.upper()}】{len(factors)}个因子")
         for f in factors:
             print(f"  {f.name:<40} {f.description}")
-    
+
     print(f"\n总计: {len(SECTOR_FACTORS)}个行业轮动因子")
 
 

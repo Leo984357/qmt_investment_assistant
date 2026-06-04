@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -59,7 +60,7 @@ class CommonConfig:
     latest_n_days: int = 180
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any] | None) -> 'CommonConfig':
+    def from_mapping(cls, data: Mapping[str, Any] | None) -> CommonConfig:
         raw = dict(data or {})
         defaults = cls()
         _ensure_known_keys('common', raw, {'project_name', 'db_path', 'timezone', 'strategy_name', 'latest_n_days'})
@@ -89,7 +90,7 @@ class StrategyConfig:
     target_gross: float = 0.95
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any] | None) -> 'StrategyConfig':
+    def from_mapping(cls, data: Mapping[str, Any] | None) -> StrategyConfig:
         raw = dict(data or {})
         defaults = cls()
         _ensure_known_keys(
@@ -136,7 +137,7 @@ class DecisionConfig:
     turnover_penalty_bps: float = 12.0
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any] | None) -> 'DecisionConfig':
+    def from_mapping(cls, data: Mapping[str, Any] | None) -> DecisionConfig:
         raw = dict(data or {})
         defaults = cls()
         _ensure_known_keys('decision', raw, {'min_rebalance_l1', 'min_trade_value', 'max_name_changes', 'turnover_penalty_bps'})
@@ -169,7 +170,7 @@ class ExecutionConfig:
     stamp_duty_bps: float = 10.0
 
     @classmethod
-    def from_mapping(cls, data: Mapping[str, Any] | None) -> 'ExecutionConfig':
+    def from_mapping(cls, data: Mapping[str, Any] | None) -> ExecutionConfig:
         raw = dict(data or {})
         defaults = cls()
         _ensure_known_keys('execution', raw, {'mode', 'lot_size', 'slippage_bps', 'commission_bps', 'stamp_duty_bps'})

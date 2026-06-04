@@ -29,7 +29,7 @@ class TestRiskConstraintEngine:
         weights = pd.DataFrame({
             'symbol': ['A', 'B', 'C'],
             'target_weight': [0.15, 0.05, 0.05],
-            'gross_exposure': [0.25, 0.25, 0.25],
+            'gross_exposure': [0.20, 0.20, 0.20],
         })
         result, checks = engine.apply_constraints(
             target_weights=weights,

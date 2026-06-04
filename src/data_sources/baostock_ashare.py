@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import time
-from contextlib import AbstractContextManager
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 
 import akshare as ak
@@ -34,7 +34,7 @@ class BaoStockAShareConfig:
 
 
 class _BaoStockSession(AbstractContextManager):
-    def __enter__(self) -> '_BaoStockSession':
+    def __enter__(self) -> _BaoStockSession:
         result = bs.login()
         if result.error_code != '0':
             raise RuntimeError(f'baostock 登录失败: {result.error_msg}')

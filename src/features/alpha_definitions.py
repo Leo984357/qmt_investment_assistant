@@ -7,10 +7,10 @@ Alpha因子定义 - 标准化版
 3. IC验证结果
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, Callable
+from collections.abc import Callable
 
+import numpy as np
+import pandas as pd
 
 # ==================== Alpha定义 ====================
 
@@ -30,7 +30,7 @@ def alpha_004_original(df: pd.DataFrame) -> pd.Series:
         rank_low = s['low'].rank(pct=True)  # 截面排名
         ts_rank = rank_low.rolling(9, min_periods=5).mean()  # Ts_Rank近似
         return -ts_rank
-    
+
     return df.groupby('symbol', group_keys=False).apply(calc)
 
 
@@ -42,7 +42,7 @@ def alpha_004_simplified(df: pd.DataFrame) -> pd.Series:
     """
     def calc(s):
         return -s['low'].rank().rolling(9, min_periods=5).mean()
-    
+
     return df.groupby('symbol', group_keys=False).apply(calc)
 
 
@@ -61,7 +61,7 @@ def alpha_004_corrected(df: pd.DataFrame) -> pd.Series:
             lambda x: pd.Series(x).rank().iloc[-1] if len(x) > 0 else np.nan, raw=False
         )
         return -ts_rank
-    
+
     return df.groupby('symbol', group_keys=False).apply(calc)
 
 
@@ -77,13 +77,13 @@ def alpha_017_original(df: pd.DataFrame) -> pd.Series:
     def calc(s):
         ts_rank = s['close'].rank().rolling(10, min_periods=5).mean()
         rank_ts_rank = (-ts_rank).rank()
-        
+
         delta1 = s['close'].diff()
         delta2 = delta1.diff()
         rank_delta = delta2.rank()
-        
+
         return rank_ts_rank * rank_delta
-    
+
     return df.groupby('symbol', group_keys=False).apply(calc)
 
 
@@ -95,7 +95,7 @@ def alpha_006_original(df: pd.DataFrame) -> pd.Series:
     """
     def calc(s):
         return -s['open'].rolling(10, min_periods=5).corr(s['volume'])
-    
+
     return df.groupby('symbol', group_keys=False).apply(calc)
 
 
@@ -107,15 +107,15 @@ def alpha_002_original(df: pd.DataFrame) -> pd.Series:
         log_vol = np.log(s['volume'])
         delta_log_vol = log_vol.diff(2)
         ret_pct = (s['close'] - s['open']) / s['open']
-        
+
         return -s['open'].rolling(6, min_periods=3).corr(s['volume'].rank())
-    
+
     return df.groupby('symbol', group_keys=False).apply(calc)
 
 
 # ==================== Alpha注册表 ====================
 
-ALPHA_REGISTRY: Dict[str, Dict] = {
+ALPHA_REGISTRY: dict[str, dict] = {
     'alpha_004': {
         'original_formula': '(-1 * Ts_Rank(rank(low), 9))',
         'description': '低价动量',
@@ -159,7 +159,7 @@ def get_alpha_implementation(name: str, version: str = 'corrected') -> Callable:
     """获取Alpha因子的实现"""
     if name not in ALPHA_REGISTRY:
         raise ValueError(f"Unknown alpha: {name}")
-    
+
     impl = ALPHA_REGISTRY[name]['implementation']
     if isinstance(impl, dict):
         if version not in impl:
@@ -172,7 +172,7 @@ def compare_alpha_versions(df: pd.DataFrame, alpha_name: str) -> pd.DataFrame:
     """对比不同版本的Alpha IC"""
     if alpha_name not in ['alpha_004']:
         return pd.DataFrame()
-    
+
     # 计算各版本
     versions = {}
     for version in ['original', 'simplified', 'corrected']:
@@ -181,22 +181,22 @@ def compare_alpha_versions(df: pd.DataFrame, alpha_name: str) -> pd.DataFrame:
             versions[version] = impl(df)
         except Exception as e:
             print(f"  {version}: {e}")
-    
+
     # 计算IC
     results = []
     for version, alpha_values in versions.items():
         df_temp = df.copy()
         df_temp[alpha_name] = alpha_values
-        
+
         valid_df = df_temp.dropna(subset=[alpha_name, 'fwd_return_20d'])
-        
+
         if len(valid_df) > 0:
             daily_ics = []
             for date, group in valid_df.groupby('trade_date'):
                 if len(group) >= 30:
                     ic = group[alpha_name].rank().corr(group['fwd_return_20d'].rank())
                     daily_ics.append(ic)
-            
+
             if len(daily_ics) > 60:
                 results.append({
                     'version': version,
@@ -206,7 +206,7 @@ def compare_alpha_versions(df: pd.DataFrame, alpha_name: str) -> pd.DataFrame:
                     'positive_rate': np.mean([x > 0 for x in daily_ics]),
                     'n_days': len(daily_ics),
                 })
-    
+
     return pd.DataFrame(results)
 
 

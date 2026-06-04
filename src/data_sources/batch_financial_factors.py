@@ -5,28 +5,27 @@
 python -m src.data_sources.batch_financial_factors --symbols-file data/symbols.txt --start-year 2018
 """
 from __future__ import annotations
+
 import argparse
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
-from typing import Optional
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+import pandas as pd
 
 from src.core.logging_utils import get_logger
-from src.ops.paths import RAW_DATA_DIR
+from src.data_sources.disclosure_date_cache import DisclosureDateCache
 from src.data_sources.financial_data import (
+    FINANCIAL_FACTOR_MAPPING,
     FinancialDataCache,
     FinancialFactorCalculator,
-    FINANCIAL_FACTOR_MAPPING,
 )
-from src.data_sources.disclosure_date_cache import DisclosureDateCache
+from src.ops.paths import RAW_DATA_DIR
 
 logger = get_logger(__name__)
 
 # 全局披露日期缓存，避免重复请求
-_disclosure_cache: Optional[DisclosureDateCache] = None
+_disclosure_cache: DisclosureDateCache | None = None
 
 
 def _get_disclosure_cache() -> DisclosureDateCache:
@@ -38,7 +37,7 @@ def _get_disclosure_cache() -> DisclosureDateCache:
 
 
 def get_financial_factors_for_symbol(
-    symbol: str, 
+    symbol: str,
     start_year: str = '2018',
     use_real_disclosure_dates: bool = True,
 ) -> pd.DataFrame:
@@ -52,34 +51,34 @@ def get_financial_factors_for_symbol(
     """
     fin_cache = FinancialDataCache()
     disc_cache = _get_disclosure_cache() if use_real_disclosure_dates else None
-    
+
     try:
         df = fin_cache.get_financial_indicator(symbol, start_year=start_year)
         if df.empty:
             return pd.DataFrame()
-        
+
         calc = FinancialFactorCalculator(df)
-        
+
         # 获取所有可用的财务因子
         results = []
         for _, row in df.iterrows():
             period = row['日期']
             if pd.isna(period):
                 continue
-            
+
             # 获取披露日期
             period_dt = pd.to_datetime(period)
             if disc_cache is not None:
                 pub_date = disc_cache.get_report_period_to_disclosure_date(symbol, period_dt)
             else:
                 pub_date = _get_pub_date(period)
-            
+
             record = {
                 'symbol': symbol,
                 'report_date': period_dt,
                 'pub_date': pub_date,  # 财报真实披露日期
             }
-            
+
             # 提取各指标
             for col, factor_name in FINANCIAL_FACTOR_MAPPING.items():
                 if col in row.index and pd.notna(row[col]):
@@ -87,11 +86,11 @@ def get_financial_factors_for_symbol(
                         record[factor_name] = float(row[col])
                     except (ValueError, TypeError):
                         pass
-            
+
             results.append(record)
-        
+
         return pd.DataFrame(results)
-    
+
     except Exception as e:
         logger.warning(f'Error processing {symbol}: {e}')
         return pd.DataFrame()
@@ -107,7 +106,7 @@ def _get_pub_date(report_date: str) -> pd.Timestamp:
     - Q4/年度: 次年4月底前
     """
     date = pd.to_datetime(report_date)
-    
+
     if date.month == 3:
         return pd.Timestamp(f'{date.year}-04-30')
     elif date.month == 6:
@@ -133,25 +132,25 @@ def get_latest_financial_factors(symbols: list[str], as_of_date: str) -> pd.Data
     cache = FinancialDataCache()
     as_of = pd.to_datetime(as_of_date)
     results = []
-    
+
     for symbol in symbols:
         try:
             df = cache.get_financial_indicator(symbol, start_year='2018')
             if df.empty:
                 continue
-            
+
             calc = FinancialFactorCalculator(df)
             factors = calc.calculate_all_factors()
-            
+
             # 找到最近可用的财务数据
             if '日期' in df.columns:
                 df['report_date'] = pd.to_datetime(df['日期'])
                 available = df[df['report_date'] <= as_of]
-                
+
                 if not available.empty:
                     latest_date = available['report_date'].max()
                     latest_row = df[df['report_date'] == latest_date].iloc[0]
-                    
+
                     for col, factor_name in FINANCIAL_FACTOR_MAPPING.items():
                         if col in latest_row.index and pd.notna(latest_row[col]):
                             try:
@@ -163,10 +162,10 @@ def get_latest_financial_factors(symbols: list[str], as_of_date: str) -> pd.Data
                                 })
                             except (ValueError, TypeError):
                                 pass
-        
-        except Exception as e:
+
+        except Exception:
             continue
-    
+
     return pd.DataFrame(results)
 
 
@@ -188,52 +187,52 @@ def build_financial_factor_panel(
         DataFrame with columns: [trade_date, symbol, factor_name, value]
     """
     cache = FinancialDataCache()
-    
+
     # 1. 并行获取所有股票的财务数据
     logger.info(f'Fetching financial data for {len(symbols)} symbols...')
-    
+
     all_data = []
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(get_financial_factors_for_symbol, sym, start_year): sym
             for sym in symbols
         }
-        
+
         for i, future in enumerate(as_completed(futures)):
             symbol = futures[future]
             try:
                 df = future.result()
                 if not df.empty:
                     all_data.append(df)
-                
+
                 if (i + 1) % 50 == 0:
                     logger.info(f'Progress: {i+1}/{len(symbols)}')
             except Exception as e:
                 logger.warning(f'Error for {symbol}: {e}')
-    
+
     if not all_data:
         logger.warning('No financial data retrieved!')
         return pd.DataFrame()
-    
+
     # 合并所有数据
     financial_panel = pd.concat(all_data, ignore_index=True)
     logger.info(f'Financial data shape: {financial_panel.shape}')
-    
+
     # 2. 为每个交易日匹配可用的财务数据
     trade_dates = sorted([pd.to_datetime(d) for d in trade_dates])
     results = []
-    
+
     for trade_date in trade_dates:
         # 找到在交易日前发布的财务数据
         mask = financial_panel['pub_date'] <= trade_date
         available = financial_panel[mask]
-        
+
         if available.empty:
             continue
-        
+
         # 对每只股票取最新数据
         latest = available.sort_values('pub_date').groupby(['symbol', 'factor_name']).last().reset_index()
-        
+
         for _, row in latest.iterrows():
             results.append({
                 'trade_date': trade_date,
@@ -241,7 +240,7 @@ def build_financial_factor_panel(
                 'factor_name': row['factor_name'],
                 'value': row['value'],
             })
-    
+
     return pd.DataFrame(results)
 
 
@@ -252,24 +251,24 @@ def save_financial_factor_cache(
 ):
     """保存财务因子缓存"""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     all_data = []
     cache = FinancialDataCache()
-    
+
     for i, symbol in enumerate(symbols):
         try:
             df = cache.get_financial_indicator(symbol, start_year=start_year)
             if not df.empty:
                 df['symbol'] = symbol
                 all_data.append(df)
-            
+
             if (i + 1) % 20 == 0:
                 logger.info(f'Progress: {i+1}/{len(symbols)}')
                 time.sleep(0.5)  # 避免请求过快
-        
+
         except Exception as e:
             logger.warning(f'Error for {symbol}: {e}')
-    
+
     if all_data:
         panel = pd.concat(all_data, ignore_index=True)
         panel.to_parquet(output_path, index=False)
@@ -317,9 +316,9 @@ if __name__ == '__main__':
     parser.add_argument('--start-year', type=str, default='2018')
     parser.add_argument('--output', type=str, default=str(RAW_DATA_DIR / 'financial_factors.parquet'))
     parser.add_argument('--workers', type=int, default=8)
-    
+
     args = parser.parse_args()
-    
+
     # 获取股票列表
     if args.symbols_file:
         symbols = Path(args.symbols_file).read_text().strip().split('\n')
@@ -327,9 +326,9 @@ if __name__ == '__main__':
         symbols = [s.strip() for s in args.symbols.split(',')]
     else:
         symbols = ['sh.600000', 'sh.600036', 'sz.000001']
-    
+
     logger.info(f'Processing {len(symbols)} symbols...')
-    
+
     save_financial_factor_cache(
         symbols=symbols,
         output_path=Path(args.output),

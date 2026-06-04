@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
-from src.core.schemas import StrategyOutput
 from src.core.paths import DATA_DIR
+from src.core.schemas import StrategyOutput
 
 TICKERS = ['000001.SZ', '000333.SZ', '000651.SZ', '600036.SH', '600519.SH', '601318.SH', '300750.SZ', '688981.SH']
 

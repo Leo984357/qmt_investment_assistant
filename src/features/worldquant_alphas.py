@@ -11,8 +11,8 @@ WorldQuant Alpha分类:
 5. Mean-reversion (87-101)
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Literal
 
 
 @dataclass(frozen=True)
@@ -298,7 +298,7 @@ WORLDQUANT_ALPHAS = [
         lookback=15,
         data_requirement=["close", "vwap"],
     ),
-    
+
     # ===== Volume-based Alphas (31-54) =====
     WorldQuantAlphaSpec(
         number=31,
@@ -480,7 +480,7 @@ WORLDQUANT_ALPHAS = [
         lookback=240,
         data_requirement=["close", "low", "returns", "volume", "adv20"],
     ),
-    
+
     # ===== Price-Volume Combined (55-76) =====
     WorldQuantAlphaSpec(
         number=55,
@@ -680,7 +680,7 @@ WORLDQUANT_ALPHAS = [
         lookback=3,
         data_requirement=["close"],
     ),
-    
+
     # ===== Momentum-based (77-86) =====
     WorldQuantAlphaSpec(
         number=77,
@@ -772,7 +772,7 @@ WORLDQUANT_ALPHAS = [
         lookback=4,
         data_requirement=["close", "volume"],
     ),
-    
+
     # ===== Mean-reversion (87-101) =====
     WorldQuantAlphaSpec(
         number=87,
@@ -927,20 +927,20 @@ def print_wq_alpha_summary():
     print("=" * 100)
     print("WorldQuant Alpha因子库汇总")
     print("=" * 100)
-    
+
     categories = {}
     for a in WORLDQUANT_ALPHAS:
         if a.category not in categories:
             categories[a.category] = []
         categories[a.category].append(a)
-    
+
     for cat, alphas in sorted(categories.items()):
         print(f"\n【{cat.upper()}】{len(alphas)}个因子")
         for a in alphas[:5]:  # 只显示前5个
             print(f"  Alpha_{a.number:03d}: {a.description}")
         if len(alphas) > 5:
             print(f"  ... 还有{len(alphas)-5}个")
-    
+
     print(f"\n总计: {len(WORLDQUANT_ALPHAS)}个WorldQuant Alpha")
 
 

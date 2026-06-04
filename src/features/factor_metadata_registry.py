@@ -9,12 +9,12 @@
 5. 评估信息: IC、单调性、换手率、成本等
 """
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Optional
+
 import pandas as pd
-import numpy as np
 
 
 class FactorFamily(Enum):
@@ -57,17 +57,17 @@ class FactorMetadata:
     name: str
     description: str = ""
     family: FactorFamily = FactorFamily.VALUE
-    
+
     # 计算信息
     formula: str = ""                   # 计算公式
     data_dependencies: list[str] = field(default_factory=list)
     lookback: int = 1
     preprocessing: list[str] = field(default_factory=list)
-    
+
     # 时点信息
     update_frequency: str = "daily"     # daily / weekly / quarterly
     timing_type: str = "end_of_period"  # 时点类型
-    
+
     # 评估指标 (动态更新)
     ic_mean: float = 0.0
     ic_std: float = 0.0
@@ -76,37 +76,37 @@ class FactorMetadata:
     monotonicity: float = 0.0
     turnover: float = 0.0
     coverage: float = 0.0
-    
+
     # IC decay (不同持有期的IC)
     ic_decay: dict = field(default_factory=dict)  # {5: 0.02, 10: 0.03, 20: 0.025}
     half_life: int = 0                    # 半衰期(天)
-    
+
     # 状态信息
     status: FactorStatus = FactorStatus.CANDIDATE
     role: FactorRole = FactorRole.PRIMARY
-    
+
     # 相关性信息
     highly_correlated_with: list[str] = field(default_factory=list)
-    substitute_factor: Optional[str] = None  # 冗余时推荐使用的替代因子
-    
+    substitute_factor: str | None = None  # 冗余时推荐使用的替代因子
+
     # 极端行情稳定性
     regime_stability: dict = field(default_factory=dict)
     # {'high_vol': 0.02, 'low_vol': 0.03, 'uptrend': 0.04, 'downtrend': 0.01}
-    
+
     # 中性化后表现
     neutralized_ic: float = 0.0
     industry_neutral_ic: float = 0.0
     size_neutral_ic: float = 0.0
-    
+
     # 时间戳
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
-    last_ic_update: Optional[datetime] = None
-    last_full_audit: Optional[datetime] = None
-    
+    last_ic_update: datetime | None = None
+    last_full_audit: datetime | None = None
+
     # 备注
     notes: str = ""
-    
+
     def to_dict(self) -> dict:
         """转换为字典"""
         return {
@@ -164,13 +164,13 @@ class FactorMetadataRegistry:
     # 导出报告
     registry.to_dataframe()
     """
-    
+
     def __init__(self):
         self._metadata: dict[str, FactorMetadata] = {}
         self._family_index: dict[FactorFamily, list[str]] = {}
         self._status_index: dict[FactorStatus, list[str]] = {}
         self._role_index: dict[FactorRole, list[str]] = {}
-    
+
     def register(
         self,
         name: str,
@@ -188,7 +188,7 @@ class FactorMetadataRegistry:
             data_dependencies = []
         if preprocessing is None:
             preprocessing = []
-        
+
         metadata = FactorMetadata(
             name=name,
             description=description,
@@ -200,15 +200,15 @@ class FactorMetadataRegistry:
             update_frequency=update_frequency,
             timing_type=timing_type,
         )
-        
+
         self._metadata[name] = metadata
         self._update_indices(name, family, FactorStatus.CANDIDATE, FactorRole.PRIMARY)
-        
+
         return metadata
-    
+
     def _update_indices(
-        self, 
-        name: str, 
+        self,
+        name: str,
         family: FactorFamily,
         status: FactorStatus,
         role: FactorRole,
@@ -219,46 +219,46 @@ class FactorMetadataRegistry:
             self._family_index[family] = []
         if name not in self._family_index[family]:
             self._family_index[family].append(name)
-        
+
         # Status index
         if status not in self._status_index:
             self._status_index[status] = []
         if name not in self._status_index[status]:
             self._status_index[status].append(name)
-        
+
         # Role index
         if role not in self._role_index:
             self._role_index[role] = []
         if name not in self._role_index[role]:
             self._role_index[role].append(name)
-    
-    def get(self, name: str) -> Optional[FactorMetadata]:
+
+    def get(self, name: str) -> FactorMetadata | None:
         """获取因子元数据"""
         return self._metadata.get(name)
-    
+
     def get_by_family(self, family: FactorFamily) -> list[FactorMetadata]:
         """获取指定家族的因子"""
         names = self._family_index.get(family, [])
         return [self._metadata[n] for n in names if n in self._metadata]
-    
+
     def get_by_status(self, status: FactorStatus) -> list[FactorMetadata]:
         """获取指定状态的因子"""
         names = self._status_index.get(status, [])
         return [self._metadata[n] for n in names if n in self._metadata]
-    
+
     def get_by_role(self, role: FactorRole) -> list[FactorMetadata]:
         """获取指定角色的因子"""
         names = self._role_index.get(role, [])
         return [self._metadata[n] for n in names if n in self._metadata]
-    
+
     def get_production_factors(self) -> list[FactorMetadata]:
         """获取生产中的因子"""
         return self.get_by_status(FactorStatus.PRODUCTION)
-    
+
     def get_candidate_factors(self) -> list[FactorMetadata]:
         """获取候选因子"""
         return self.get_by_status(FactorStatus.CANDIDATE)
-    
+
     def update_ic(
         self,
         name: str,
@@ -282,7 +282,7 @@ class FactorMetadataRegistry:
             metadata.coverage = coverage
             metadata.last_ic_update = datetime.now()
             metadata.updated_at = datetime.now()
-    
+
     def update_decay(
         self,
         name: str,
@@ -295,14 +295,14 @@ class FactorMetadataRegistry:
             metadata.ic_decay = ic_decay
             metadata.half_life = half_life
             metadata.updated_at = datetime.now()
-    
+
     def update_regime_stability(self, name: str, regime_stability: dict):
         """更新极端行情稳定性"""
         metadata = self._metadata.get(name)
         if metadata:
             metadata.regime_stability = regime_stability
             metadata.updated_at = datetime.now()
-    
+
     def update_neutralization(self, name: str, industry_neutral_ic: float, size_neutral_ic: float):
         """更新中性化后IC"""
         metadata = self._metadata.get(name)
@@ -311,7 +311,7 @@ class FactorMetadataRegistry:
             metadata.size_neutral_ic = size_neutral_ic
             metadata.neutralized_ic = max(industry_neutral_ic, size_neutral_ic)
             metadata.updated_at = datetime.now()
-    
+
     def update_status(self, name: str, status: FactorStatus):
         """更新因子状态"""
         metadata = self._metadata.get(name)
@@ -319,7 +319,7 @@ class FactorMetadataRegistry:
             old_status = metadata.status
             metadata.status = status
             metadata.updated_at = datetime.now()
-            
+
             # 更新索引
             if old_status in self._status_index:
                 if name in self._status_index[old_status]:
@@ -328,10 +328,10 @@ class FactorMetadataRegistry:
                 self._status_index[status] = []
             if name not in self._status_index[status]:
                 self._status_index[status].append(name)
-    
+
     def update_role(
-        self, 
-        name: str, 
+        self,
+        name: str,
         role: FactorRole,
         highly_correlated_with: list[str] = None,
         substitute_factor: str = None,
@@ -346,7 +346,7 @@ class FactorMetadataRegistry:
             if substitute_factor:
                 metadata.substitute_factor = substitute_factor
             metadata.updated_at = datetime.now()
-            
+
             # 更新索引
             if old_role in self._role_index:
                 if name in self._role_index[old_role]:
@@ -355,7 +355,7 @@ class FactorMetadataRegistry:
                 self._role_index[role] = []
             if name not in self._role_index[role]:
                 self._role_index[role].append(name)
-    
+
     def mark_for_retirement(self, name: str, reason: str = ""):
         """标记因子退役"""
         metadata = self._metadata.get(name)
@@ -363,20 +363,20 @@ class FactorMetadataRegistry:
             metadata.status = FactorStatus.RETIRED
             metadata.notes = f"退役原因: {reason}"
             metadata.updated_at = datetime.now()
-    
+
     def to_dataframe(self) -> pd.DataFrame:
         """导出为DataFrame"""
         records = []
         for m in self._metadata.values():
             records.append(m.to_dict())
         return pd.DataFrame(records)
-    
+
     def get_pool_summary(self) -> dict:
         """获取因子池汇总"""
         return {
             'total': len(self._metadata),
             'by_family': {
-                f.value: len(names) 
+                f.value: len(names)
                 for f, names in self._family_index.items()
             },
             'by_status': {
@@ -388,11 +388,11 @@ class FactorMetadataRegistry:
                 for r, names in self._role_index.items()
             },
         }
-    
+
     def get_recommendations(self) -> pd.DataFrame:
         """获取因子池优化建议"""
         recommendations = []
-        
+
         # 检查冗余
         for name, metadata in self._metadata.items():
             if metadata.role == FactorRole.REDUNDANT:
@@ -403,7 +403,7 @@ class FactorMetadataRegistry:
                     'suggestion': f'保留 {metadata.substitute_factor}' if metadata.substitute_factor else '考虑移除',
                     'priority': 'HIGH',
                 })
-        
+
         # 检查IC下降
         for name, metadata in self._metadata.items():
             if metadata.status == FactorStatus.PRODUCTION:
@@ -415,7 +415,7 @@ class FactorMetadataRegistry:
                         'suggestion': '持续监控，如持续下降考虑降权',
                         'priority': 'MEDIUM',
                     })
-        
+
         # 检查长期未更新
         for name, metadata in self._metadata.items():
             if metadata.last_ic_update:
@@ -428,12 +428,12 @@ class FactorMetadataRegistry:
                         'suggestion': '重新计算IC进行审计',
                         'priority': 'LOW',
                     })
-        
+
         return pd.DataFrame(recommendations) if recommendations else pd.DataFrame()
 
 
 # 全局实例
-_factor_metadata_registry: Optional[FactorMetadataRegistry] = None
+_factor_metadata_registry: FactorMetadataRegistry | None = None
 
 def get_factor_metadata_registry() -> FactorMetadataRegistry:
     """获取全局因子元数据注册表"""

@@ -4,25 +4,24 @@ import argparse
 import json
 import subprocess
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 from src.adapters.mock.account import reset_mock_account
 from src.core.config import ConfigError, load_app_config
 from src.core.experiment_store import latest_runs, normalize_payload
+from src.core.logging_utils import configure_logging, get_logger
 from src.data_sources.factory import build_data_source
 from src.data_store.catalog import LocalResearchCatalog
 from src.experiment.runner import build_source_data_spec_with_warmup, run_experiment
 from src.experiment.spec import load_experiment_spec
 from src.experiment.validation import validate_run
-from src.core.logging_utils import configure_logging, get_logger
+from src.features.factor_catalog import FactorStatus, build_default_catalog
 from src.ops.paths import ROOT
 from src.services.decision import run_decision
 from src.services.execute import run_execute
 from src.services.pipeline import run_pipeline
 from src.services.research import run_research
 from src.services.review import run_review
-from src.features.factor_catalog import build_default_catalog
-from src.features.factor_catalog import FactorStatus
 
 logger = get_logger(__name__)
 
@@ -30,11 +29,11 @@ logger = get_logger(__name__)
 def _audit_config(config_path: str) -> dict:
     """Audit experiment config for production safety."""
     from src.experiment.spec import load_experiment_spec
-    
+
     issues = []
     warnings = []
     info = []
-    
+
     try:
         spec = load_experiment_spec(config_path)
     except Exception as e:
@@ -42,7 +41,7 @@ def _audit_config(config_path: str) -> dict:
             'status': 'error',
             'message': f'Failed to load config: {e}',
         }
-    
+
     # Check registry_stage
     registry_stage = spec.model.registry_stage if hasattr(spec.model, 'registry_stage') else 'unknown'
     protocol_stage = spec.research_protocol.stage
@@ -53,7 +52,7 @@ def _audit_config(config_path: str) -> dict:
     info.append(f"risk_attribution.enabled: {spec.risk_attribution.enabled}")
     info.append(f"overlay.enabled: {spec.overlay.enabled}")
     info.append(f"overlay.regime_exposure_enabled: {spec.overlay.regime_exposure_enabled}")
-    
+
     # Research stage cannot produce formal conclusions
     if registry_stage == 'research':
         warnings.append({
@@ -80,14 +79,14 @@ def _audit_config(config_path: str) -> dict:
             'type': 'holdout_protocol',
             'message': 'Holdout stage - final evidence only; no tuning allowed after this run',
         })
-    
+
     # Check allow_rejected_factors and allow_observe_factors (from raw config)
     import yaml
     with open(config_path) as f:
         raw = yaml.safe_load(f)
     allow_rejected = raw.get('allow_rejected_factors', False)
     allow_observe = raw.get('allow_observe_factors', False)
-    
+
     if registry_stage == 'production' and allow_rejected:
         issues.append({
             'severity': 'error',
@@ -95,13 +94,13 @@ def _audit_config(config_path: str) -> dict:
             'message': 'Production config cannot have allow_rejected_factors: true',
             'fix': 'Move rejected factors to diagnostic config or remove allow_rejected_factors',
         })
-    
+
     # Check factor catalog status
     catalog = build_default_catalog()
     unknown_factors = []
     rejected_factors = []
     observe_factors = []
-    
+
     for factor_name in spec.features.names:
         profile = catalog.get(factor_name)
         if profile is None:
@@ -110,7 +109,7 @@ def _audit_config(config_path: str) -> dict:
             rejected_factors.append(factor_name)
         elif profile.status == FactorStatus.OBSERVE:
             observe_factors.append(factor_name)
-    
+
     if unknown_factors:
         finding = {
             'severity': 'error' if registry_stage == 'production' else 'warning',
@@ -123,7 +122,7 @@ def _audit_config(config_path: str) -> dict:
             issues.append(finding)
         else:
             warnings.append(finding)
-    
+
     if rejected_factors:
         if registry_stage == 'production':
             issues.append({
@@ -140,7 +139,7 @@ def _audit_config(config_path: str) -> dict:
                 'factors': rejected_factors,
                 'message': 'Rejected factors in diagnostic config (acceptable for research)',
             })
-    
+
     if observe_factors and registry_stage == 'production':
         if allow_observe:
             warnings.append({
@@ -157,11 +156,11 @@ def _audit_config(config_path: str) -> dict:
                 'message': 'Observe-status factors in production without allow_observe_factors: true',
                 'fix': 'Set allow_observe_factors: true to allow, or move factors to research stage',
             })
-    
+
     # Check enhancer
     enhancer_enabled = spec.enhancer.enabled if hasattr(spec.enhancer, 'enabled') else None
     info.append(f"enhancer_enabled: {enhancer_enabled}")
-    
+
     # Determine overall status
     if registry_stage == 'research':
         status = 'warning'
@@ -189,11 +188,11 @@ def _audit_config(config_path: str) -> dict:
     else:
         status = 'warning'
         recommendation = f'Unknown registry_stage: {registry_stage}'
-    
+
     # Core factors
     core_factors = [p.name for p in catalog.get_core_factors()]
     used_core = [f for f in spec.features.names if f in core_factors]
-    
+
     return {
         'status': status,
         'config': config_path,

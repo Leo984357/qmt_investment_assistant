@@ -9,10 +9,10 @@
 """
 from __future__ import annotations
 
-import pandas as pd
 from dataclasses import dataclass, field
-from typing import Optional
 from enum import Enum
+
+import pandas as pd
 
 
 class FactorFamily(Enum):
@@ -62,38 +62,38 @@ class FactorProfile:
     name: str
     family: FactorFamily
     description: str
-    
+
     # 经济机制
     economic_mechanism: str
     hypothesis: str
     expected_signal: FactorSignal
-    
+
     # 技术规格
     lookback: int
     inputs: tuple[str, ...]
     computation: str
-    
+
     # 冗余性
     similar_to: list[str] = field(default_factory=list)  # 近似替代品
     dominates: list[str] = field(default_factory=list)    # 被此因子主导的因子
     noise_correlate: list[str] = field(default_factory=list)  # 常被误认为相关的噪音
-    
+
     # 状态
     status: FactorStatus = FactorStatus.OBSERVE
-    
+
     # 性能指标 (来自研究)
-    ic_mean: Optional[float] = None
-    ic_std: Optional[float] = None
-    ic_ir: Optional[float] = None
-    ic_positive_ratio: Optional[float] = None
-    
+    ic_mean: float | None = None
+    ic_std: float | None = None
+    ic_ir: float | None = None
+    ic_positive_ratio: float | None = None
+
     # 成本敏感性
     cost_threshold_30bp: bool = False  # 30bp单边成本下是否仍有效
-    
+
     # 风险点
     failure_modes: list[str] = field(default_factory=list)
     regime_sensitivity: str = ""       # 对哪种市场状态敏感
-    
+
     # 元数据
     version: str = "v1"
     owner: str = "research"
@@ -103,44 +103,44 @@ class FactorProfile:
 
 class FactorCatalog:
     """因子档案管理器"""
-    
+
     def __init__(self):
         self._profiles: dict[str, FactorProfile] = {}
         self._family_index: dict[FactorFamily, list[str]] = {}
         self._status_index: dict[FactorStatus, list[str]] = {}
-    
+
     def register(self, profile: FactorProfile) -> None:
         """注册因子档案"""
         self._profiles[profile.name] = profile
-        
+
         # 更新家族索引
         if profile.family not in self._family_index:
             self._family_index[profile.family] = []
         self._family_index[profile.family].append(profile.name)
-        
+
         # 更新状态索引
         if profile.status not in self._status_index:
             self._status_index[profile.status] = []
         self._status_index[profile.status].append(profile.name)
-    
-    def get(self, name: str) -> Optional[FactorProfile]:
+
+    def get(self, name: str) -> FactorProfile | None:
         return self._profiles.get(name)
-    
+
     def get_by_family(self, family: FactorFamily) -> list[FactorProfile]:
         names = self._family_index.get(family, [])
         return [self._profiles[n] for n in names]
-    
+
     def get_by_status(self, status: FactorStatus) -> list[FactorProfile]:
         names = self._status_index.get(status, [])
         return [self._profiles[n] for n in names]
-    
+
     def get_core_factors(self) -> list[FactorProfile]:
         return self.get_by_status(FactorStatus.CORE)
-    
+
     def get_research_pool(self) -> list[FactorProfile]:
         """获取研究池 - CORE + BACKUP"""
         return self.get_by_status(FactorStatus.CORE) + self.get_by_status(FactorStatus.BACKUP)
-    
+
     def inventory(self) -> pd.DataFrame:
         """导出档案清单"""
         rows = []
@@ -163,27 +163,27 @@ class FactorCatalog:
         if len(df) > 0:
             df = df.sort_values(['status', 'family', 'ic_mean'], ascending=[True, True, False])
         return df
-    
+
     def print_report(self):
         """打印因子池报告"""
         print("=" * 100)
         print("因子档案系统 - 因子池报告")
         print("=" * 100)
-        
+
         # 状态汇总
         print("\n【一、因子池状态分布】")
         for status in FactorStatus:
             count = len(self._status_index.get(status, []))
             if count > 0:
                 print(f"  {status.value}: {count}个")
-        
+
         # 家族分布
         print("\n【二、因子家族分布】")
         for family in FactorFamily:
             count = len(self._family_index.get(family, []))
             if count > 0:
                 print(f"  {family.value}: {count}个")
-        
+
         # 核心池
         core = self.get_core_factors()
         if core:
@@ -195,14 +195,14 @@ class FactorCatalog:
                 ic = f"{p.ic_mean:.4f}" if p.ic_mean else "N/A"
                 ir = f"{p.ic_ir:.3f}" if p.ic_ir else "N/A"
                 print(f"{p.name:<20} {p.family.value:<15} {ic:>8} {ir:>8} {p.expected_signal.value:<10} {cost:>10}")
-        
+
         # 备用池
         backup = self.get_by_status(FactorStatus.BACKUP)
         if backup:
             print("\n【四、备用池 (BACKUP) - IC>0.005】")
             for p in sorted(backup, key=lambda x: x.ic_mean or 0, reverse=True):
                 print(f"  {p.name}: {p.economic_mechanism}")
-        
+
         # 冗余关系
         print("\n【五、近似替代品关系】")
         for p in self._profiles.values():
@@ -212,14 +212,14 @@ class FactorCatalog:
                     print(f"    ≈ 类似: {', '.join(p.similar_to)}")
                 if p.dominates:
                     print(f"    > 主导: {', '.join(p.dominates)}")
-        
+
         print("\n" + "=" * 100)
 
 
 def build_default_catalog() -> FactorCatalog:
     """构建默认因子档案"""
     catalog = FactorCatalog()
-    
+
     # ============ 动量家族 ============
     # 长周期动量 - 核心有效
     catalog.register(FactorProfile(
@@ -242,7 +242,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["市场风格切换", "长期横盘后的补跌"],
         regime_sensitivity="牛市动量更强，熊市初期有效",
     ))
-    
+
     # 中周期动量 - 备用
     catalog.register(FactorProfile(
         name="mom120",
@@ -263,7 +263,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["中期反转效应干扰"],
         regime_sensitivity="震荡市有效",
     ))
-    
+
     # 短周期动量 - 拒绝/备份
     for w in [3, 5, 10, 20, 30, 60, 90]:
         status = FactorStatus.REJECT if w <= 60 else FactorStatus.BACKUP
@@ -279,12 +279,12 @@ def build_default_catalog() -> FactorCatalog:
             inputs=('adj_close',),
             computation="_pct_change(adj_close, w)",
             similar_to=[f"mom{x}" for x in [5, 10, 20, 30, 60, 90, 120] if x != w],
-            dominates=[f"mom250"] if w < 250 else [],
+            dominates=["mom250"] if w < 250 else [],
             status=status,
             ic_mean=ic_mean,
             failure_modes=["噪音过大", "短期反转干扰"],
         ))
-    
+
     # ============ 反转家族 ============
     # 20日反转 - 备用有效
     catalog.register(FactorProfile(
@@ -306,7 +306,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["强趋势市场中反转失效"],
         regime_sensitivity="震荡市反转更强，趋势市失效",
     ))
-    
+
     for w in [1, 3, 5, 10]:
         ic_mean = 0.01 if w == 10 else 0.005 if w == 5 else 0.0
         catalog.register(FactorProfile(
@@ -325,7 +325,7 @@ def build_default_catalog() -> FactorCatalog:
             ic_mean=ic_mean,
             failure_modes=["噪音过大"],
         ))
-    
+
     # ============ 波动率家族 ============
     # 高波动率因子 - 拒绝 (IC显著为负)
     for w in [5, 10, 20, 30, 60, 120]:
@@ -348,7 +348,7 @@ def build_default_catalog() -> FactorCatalog:
             failure_modes=["波动率被机构用于择时止损", "高频交易干扰", "LightGBM高权重误导"],
             notes="⚠️ LightGBM常给此因子高权重但IC为负，是误导因子",
         ))
-    
+
     # ATR标准化
     for w in [14, 20]:
         catalog.register(FactorProfile(
@@ -367,7 +367,7 @@ def build_default_catalog() -> FactorCatalog:
             cost_threshold_30bp=False,
             failure_modes=["与vol类因子同质化"],
         ))
-    
+
     # 波动率比
     for s, l in [(5, 20), (10, 60), (20, 60)]:
         catalog.register(FactorProfile(
@@ -383,7 +383,7 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.REJECT,
             ic_mean=-0.02,
         ))
-    
+
     # ============ 流动性家族 ============
     for short, long in [(5, 20), (10, 60), (20, 60), (5, 60)]:
         catalog.register(FactorProfile(
@@ -400,7 +400,7 @@ def build_default_catalog() -> FactorCatalog:
             ic_mean=0.001,
             failure_modes=["放量可能是出货信号"],
         ))
-    
+
     for w in [5, 20, 60]:
         catalog.register(FactorProfile(
             name=f"amount_growth{w}",
@@ -415,7 +415,7 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.BACKUP,
             ic_mean=0.001,
         ))
-    
+
     for w in [5, 10, 20]:
         catalog.register(FactorProfile(
             name=f"vol_growth{w}",
@@ -431,7 +431,7 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.BACKUP,
             ic_mean=0.001,
         ))
-    
+
     # ============ 价格位置家族 ============
     # 创新高 - 核心有效
     catalog.register(FactorProfile(
@@ -453,7 +453,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["假突破"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     # 120日高位 - 备用有效
     catalog.register(FactorProfile(
         name="close_to_high120",
@@ -471,7 +471,7 @@ def build_default_catalog() -> FactorCatalog:
         ic_mean=0.007,
         cost_threshold_30bp=True,
     ))
-    
+
     for w in [20, 60, 120]:
         if w not in [120, 250]:
             catalog.register(FactorProfile(
@@ -489,7 +489,7 @@ def build_default_catalog() -> FactorCatalog:
                 status=FactorStatus.BACKUP if w >= 60 else FactorStatus.REJECT,
                 ic_mean=0.005 if w >= 60 else 0.001,
             ))
-    
+
     # 创新低
     for w in [20, 60, 120, 250]:
         catalog.register(FactorProfile(
@@ -506,7 +506,7 @@ def build_default_catalog() -> FactorCatalog:
             ic_mean=-0.01 if w <= 60 else 0.0,
             failure_modes=["跌跌不休股票不适合抄底"],
         ))
-    
+
     # 高低价位置 - 备用有效
     catalog.register(FactorProfile(
         name="high_low_pos120",
@@ -523,7 +523,7 @@ def build_default_catalog() -> FactorCatalog:
         ic_mean=0.005,
         cost_threshold_30bp=True,
     ))
-    
+
     for w in [20, 60]:
         catalog.register(FactorProfile(
             name=f"high_low_pos{w}",
@@ -539,7 +539,7 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.BACKUP,
             ic_mean=0.001,
         ))
-    
+
     # ============ 技术震荡指标家族 ============
     # RSI - 备用有效
     catalog.register(FactorProfile(
@@ -559,7 +559,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势市RSI失效"],
         regime_sensitivity="震荡市有效",
     ))
-    
+
     for w in [12, 14, 24]:
         catalog.register(FactorProfile(
             name=f"rsi{w}",
@@ -575,7 +575,7 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.BACKUP if w == 14 else FactorStatus.OBSERVE,
             ic_mean=0.002 if w == 14 else 0.001,
         ))
-    
+
     # Williams %R
     for w in [14, 28]:
         catalog.register(FactorProfile(
@@ -593,7 +593,7 @@ def build_default_catalog() -> FactorCatalog:
             ic_mean=-0.01,
             failure_modes=["与RSI同质化"],
         ))
-    
+
     # KDJ - 拒绝
     for w in [9, 14]:
         for sub in ['k', 'd']:
@@ -613,7 +613,7 @@ def build_default_catalog() -> FactorCatalog:
                 failure_modes=["参数敏感", "过度拟合历史"],
                 notes="⚠️ IC显著为负，不适合作为因子",
             ))
-    
+
     # CCI
     for w in [14, 20]:
         catalog.register(FactorProfile(
@@ -629,7 +629,7 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.REJECT,
             ic_mean=-0.01,
         ))
-    
+
     # MACD
     catalog.register(FactorProfile(
         name="macd_diff",
@@ -645,7 +645,7 @@ def build_default_catalog() -> FactorCatalog:
         ic_mean=-0.01,
         failure_modes=["趋势滞后", "噪音大"],
     ))
-    
+
     catalog.register(FactorProfile(
         name="macd_dea",
         family=FactorFamily.TECHNICAL_OSCILLATOR,
@@ -659,7 +659,7 @@ def build_default_catalog() -> FactorCatalog:
         status=FactorStatus.REJECT,
         ic_mean=-0.01,
     ))
-    
+
     catalog.register(FactorProfile(
         name="macd_hist",
         family=FactorFamily.TECHNICAL_OSCILLATOR,
@@ -673,7 +673,7 @@ def build_default_catalog() -> FactorCatalog:
         status=FactorStatus.REJECT,
         ic_mean=-0.01,
     ))
-    
+
     # ============ 均线乖离家族 ============
     for short, long in [(5, 20), (10, 20), (5, 60), (20, 60)]:
         catalog.register(FactorProfile(
@@ -690,7 +690,7 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.BACKUP,
             ic_mean=0.001,
         ))
-    
+
     for w in [20, 60, 120]:
         catalog.register(FactorProfile(
             name=f"price_to_ma{w}",
@@ -706,7 +706,7 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.BACKUP,
             ic_mean=0.001,
         ))
-    
+
     # ============ 分布特征家族 ============
     for w in [20, 60]:
         catalog.register(FactorProfile(
@@ -722,7 +722,7 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.BACKUP,
             ic_mean=0.001,
         ))
-        
+
         catalog.register(FactorProfile(
             name=f"return_kurt{w}",
             family=FactorFamily.DISTRIBUTION,
@@ -736,11 +736,11 @@ def build_default_catalog() -> FactorCatalog:
             status=FactorStatus.BACKUP,
             ic_mean=0.001,
         ))
-    
+
     # ============ 财务因子家族 ============
     # 基于 AGENTS.md 2026-04-12 策略发现结果
     # IC/IR 数据来自 scripts/strategy_discovery_v2.py 验证
-    
+
     # ---- 估值因子 (Value) ----
     catalog.register(FactorProfile(
         name="earnings_yield",
@@ -763,7 +763,7 @@ def build_default_catalog() -> FactorCatalog:
         regime_sensitivity="牛市初期有效，熊市价值防御",
         notes="= 1/PE_ttm，不是ROE类因子",
     ))
-    
+
     catalog.register(FactorProfile(
         name="book_to_price",
         family=FactorFamily.VALUE,
@@ -780,7 +780,7 @@ def build_default_catalog() -> FactorCatalog:
         ic_ir=0.180,
         cost_threshold_30bp=True,
     ))
-    
+
     # ---- 盈利能力因子 (Profitability) ----
     catalog.register(FactorProfile(
         name="roe",
@@ -803,7 +803,7 @@ def build_default_catalog() -> FactorCatalog:
         regime_sensitivity="牛市进攻性强，熊市防御一般",
         notes="与earnings_yield低相关(0.1)，可叠加",
     ))
-    
+
     catalog.register(FactorProfile(
         name="roe_weighted",
         family=FactorFamily.PROFITABILITY,
@@ -821,7 +821,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         notes="与roe高度冗余(0.85)，优先使用roe",
     ))
-    
+
     catalog.register(FactorProfile(
         name="roa",
         family=FactorFamily.PROFITABILITY,
@@ -838,7 +838,7 @@ def build_default_catalog() -> FactorCatalog:
         ic_ir=0.260,
         cost_threshold_30bp=True,
     ))
-    
+
     catalog.register(FactorProfile(
         name="total_roa",
         family=FactorFamily.PROFITABILITY,
@@ -855,7 +855,7 @@ def build_default_catalog() -> FactorCatalog:
         ic_ir=0.180,
         cost_threshold_30bp=True,
     ))
-    
+
     catalog.register(FactorProfile(
         name="operating_margin",
         family=FactorFamily.PROFITABILITY,
@@ -875,7 +875,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         notes="与gross_margin中等冗余(0.6)，都保留",
     ))
-    
+
     catalog.register(FactorProfile(
         name="gross_margin",
         family=FactorFamily.PROFITABILITY,
@@ -893,7 +893,7 @@ def build_default_catalog() -> FactorCatalog:
         ic_positive_ratio=0.59,
         cost_threshold_30bp=True,
     ))
-    
+
     # ---- 成长因子 (Growth) ----
     catalog.register(FactorProfile(
         name="equity_growth",
@@ -913,7 +913,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         failure_modes=["外延并购增长"],
     ))
-    
+
     catalog.register(FactorProfile(
         name="revenue_growth",
         family=FactorFamily.GROWTH,
@@ -931,7 +931,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         notes="已实现，可用于研究候选",
     ))
-    
+
     catalog.register(FactorProfile(
         name="profit_growth",
         family=FactorFamily.GROWTH,
@@ -949,7 +949,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         notes="已实现，可用于研究候选",
     ))
-    
+
     # ---- 现金流因子 (Cash Flow) ----
     catalog.register(FactorProfile(
         name="ocf_per_share",
@@ -969,7 +969,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         failure_modes=["重资产行业现金流天然低"],
     ))
-    
+
     # ---- 运营效率因子 (Efficiency) ----
     catalog.register(FactorProfile(
         name="asset_turnover",
@@ -988,7 +988,7 @@ def build_default_catalog() -> FactorCatalog:
         ic_positive_ratio=0.55,
         cost_threshold_30bp=True,
     ))
-    
+
     # ---- 杠杆/偿债因子 (Leverage) ----
     catalog.register(FactorProfile(
         name="cash_ratio",
@@ -1006,7 +1006,7 @@ def build_default_catalog() -> FactorCatalog:
         ic_ir=0.090,
         cost_threshold_30bp=True,
     ))
-    
+
     catalog.register(FactorProfile(
         name="current_ratio",
         family=FactorFamily.LEVERAGE,
@@ -1025,7 +1025,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         notes="已实现，可用于研究候选",
     ))
-    
+
     catalog.register(FactorProfile(
         name="debt_ratio",
         family=FactorFamily.LEVERAGE,
@@ -1043,7 +1043,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=False,
         notes="已实现，可用于研究候选",
     ))
-    
+
     # ---- 质量因子 (Quality) ----
     catalog.register(FactorProfile(
         name="roe_assets",
@@ -1062,7 +1062,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         notes="已实现，可用于研究候选",
     ))
-    
+
     catalog.register(FactorProfile(
         name="roe_change",
         family=FactorFamily.QUALITY,
@@ -1081,10 +1081,10 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         notes="已实现，可用于研究候选",
     ))
-    
+
     # ---- 补充财务因子 (Observing) ----
     # 以下因子已实现，状态更新为 backup
-    
+
     catalog.register(FactorProfile(
         name="net_margin",
         family=FactorFamily.PROFITABILITY,
@@ -1102,7 +1102,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         notes="已实现，可用于研究候选",
     ))
-    
+
     catalog.register(FactorProfile(
         name="quick_ratio",
         family=FactorFamily.LEVERAGE,
@@ -1119,7 +1119,7 @@ def build_default_catalog() -> FactorCatalog:
         cost_threshold_30bp=True,
         notes="已实现，可用于研究候选",
     ))
-    
+
     catalog.register(FactorProfile(
         name="inv_turnover",
         family=FactorFamily.EFFICIENCY,
@@ -1134,11 +1134,11 @@ def build_default_catalog() -> FactorCatalog:
         ic_mean=0.003,
         cost_threshold_30bp=True,
     ))
-    
+
     # ---- WorldQuant Alpha 基础档案 ----
     # 基于 scripts/full_factor_ic_test.py 2026-04 结果
     # 有效Alpha: alpha_006, alpha_003, alpha_016, alpha_014, alpha_036
-    
+
     alpha_valid = {
         'alpha_006': {'ic': 0.027, 'ir': 0.261, 'desc': '开盘量价关系'},
         'alpha_003': {'ic': 0.024, 'ir': 0.245, 'desc': '开盘量rank相关'},
@@ -1146,7 +1146,7 @@ def build_default_catalog() -> FactorCatalog:
         'alpha_014': {'ic': 0.020, 'ir': 0.214, 'desc': '量价混合'},
         'alpha_036': {'ic': 0.017, 'ir': 0.184, 'desc': '成交量加权'},
     }
-    
+
     for alpha_name, info in alpha_valid.items():
         catalog.register(FactorProfile(
             name=alpha_name,
@@ -1167,7 +1167,7 @@ def build_default_catalog() -> FactorCatalog:
             failure_modes=["参数敏感", "和市场状态相关"],
             regime_sensitivity="震荡市更有效",
         ))
-    
+
     # 无效Alpha (观察/拒绝)
     alpha_invalid = {
         'alpha_013': {'ic': -0.003, 'desc': '负向'},
@@ -1178,7 +1178,7 @@ def build_default_catalog() -> FactorCatalog:
         'alpha_087': {'ic': -0.018, 'desc': '负向'},
         'alpha_088': {'ic': -0.016, 'desc': '负向'},
     }
-    
+
     for alpha_name, info in alpha_invalid.items():
         catalog.register(FactorProfile(
             name=alpha_name,
@@ -1196,7 +1196,7 @@ def build_default_catalog() -> FactorCatalog:
             cost_threshold_30bp=False,
             failure_modes=["IC为负", "做空成本高"],
         ))
-    
+
     # 已实现的Alpha (backup)
     for i in [1, 2, 4, 5, 7, 8, 9, 10, 11, 12, 15, 17, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 33, 34, 35, 37, 38, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]:
         alpha_name = f'alpha_{i:03d}'
@@ -1214,7 +1214,7 @@ def build_default_catalog() -> FactorCatalog:
             ic_mean=None,
             notes="需运行 full_factor_ic_test.py 验证",
         ))
-    
+
     # ---- Pattern 因子 (观察) ----
     pattern_factors = [
         ('ma_diff_5_20', 'TECHNICAL_OSCILLATOR', '5日/20日均线差', 0.001),
@@ -1228,7 +1228,7 @@ def build_default_catalog() -> FactorCatalog:
         ('kdj_k9', 'TECHNICAL_OSCILLATOR', 'KDJ K值', 0.001),
         ('cci14', 'TECHNICAL_OSCILLATOR', '14日CCI', 0.001),
     ]
-    
+
     for name, family, desc, ic in pattern_factors:
         family_enum = FactorFamily[family]
         catalog.register(FactorProfile(
@@ -1245,7 +1245,7 @@ def build_default_catalog() -> FactorCatalog:
             ic_mean=ic,
             notes="需验证",
         ))
-    
+
     # ---- Sentiment/Analyst 因子 ----
     sentiment_analyst_factors = [
         ('industry_money_flow_rank', 'SENTIMENT', '行业资金流排名', 0.002),
@@ -1255,7 +1255,7 @@ def build_default_catalog() -> FactorCatalog:
         ('avg_analyst_return', 'SENTIMENT', '分析师平均收益率', 0.002),
         ('sector_analyst_breadth', 'SENTIMENT', '行业分析师覆盖广度', 0.001),
     ]
-    
+
     for name, family, desc, ic in sentiment_analyst_factors:
         family_enum = FactorFamily[family]
         catalog.register(FactorProfile(
@@ -1272,7 +1272,7 @@ def build_default_catalog() -> FactorCatalog:
             ic_mean=ic,
             notes="需验证IC和稳定性",
         ))
-    
+
     # ---- Stock-level Money Flow & Research Report 因子 ----
     stock_mf_report_factors = [
         ('main_flow_rank', 'LIQUIDITY', '主力资金流排名', 0.002),
@@ -1282,7 +1282,7 @@ def build_default_catalog() -> FactorCatalog:
         ('avg_pe_2026', 'VALUE', '2026预测PE均值', 0.001),
         ('institution_coverage', 'SENTIMENT', '机构覆盖数量', 0.002),
     ]
-    
+
     for name, family, desc, ic in stock_mf_report_factors:
         family_enum = FactorFamily[family]
         catalog.register(FactorProfile(
@@ -1299,7 +1299,7 @@ def build_default_catalog() -> FactorCatalog:
             ic_mean=ic,
             notes="需验证IC和稳定性",
         ))
-    
+
     # ============ 新增因子 (2026-04-15 研究发现) ============
     # volume_momentum - 成交量动量因子
     catalog.register(FactorProfile(
@@ -1321,7 +1321,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["成交量操纵"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     # market_breadth - 市场宽度因子
     catalog.register(FactorProfile(
         name="market_breadth",
@@ -1342,7 +1342,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["市场分化时失效"],
         regime_sensitivity="牛市有效",
     ))
-    
+
     # ===== Behavioral Finance Factors =====
     catalog.register(FactorProfile(
         name="short_term_reversal",
@@ -1363,7 +1363,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["高换手成本"],
         regime_sensitivity="高波动市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="medium_term_reversal",
         family=FactorFamily.BEHAVIORAL,
@@ -1383,7 +1383,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["高换手成本"],
         regime_sensitivity="震荡市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="long_term_reversal",
         family=FactorFamily.BEHAVIORAL,
@@ -1403,7 +1403,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["长期持仓风险"],
         regime_sensitivity="熊市末端有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="smart_money_flow",
         family=FactorFamily.BEHAVIORAL,
@@ -1423,7 +1423,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["数据延迟"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="disposition_effect",
         family=FactorFamily.BEHAVIORAL,
@@ -1443,7 +1443,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["短期波动干扰"],
         regime_sensitivity="市场敏感",
     ))
-    
+
     catalog.register(FactorProfile(
         name="herding_indicator",
         family=FactorFamily.BEHAVIORAL,
@@ -1463,7 +1463,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["市场整体影响"],
         regime_sensitivity="高相关性市场",
     ))
-    
+
     catalog.register(FactorProfile(
         name="momentum_divergence",
         family=FactorFamily.BEHAVIORAL,
@@ -1483,7 +1483,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势反转风险"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     # ===== Pattern Recognition Factors =====
     catalog.register(FactorProfile(
         name="body_ratio",
@@ -1504,7 +1504,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["无趋势市场"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="upper_shadow_ratio",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1524,7 +1524,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["短期波动"],
         regime_sensitivity="震荡市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="lower_shadow_ratio",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1544,7 +1544,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["短期波动"],
         regime_sensitivity="超跌反弹有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="price_position_20",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1564,7 +1564,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势持续性"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="price_position_60",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1584,7 +1584,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势持续性"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="intraday_range",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1604,7 +1604,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["高波动误导"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="volume_climax",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1624,7 +1624,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势持续性"],
         regime_sensitivity="趋势末端有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="volume_dry_up_60",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1644,7 +1644,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["方向不确定"],
         regime_sensitivity="震荡市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="narrow_range_20",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1664,7 +1664,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["方向不确定"],
         regime_sensitivity="震荡市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="narrow_range_60",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1684,7 +1684,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["方向不确定"],
         regime_sensitivity="震荡市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="close_to_high_5",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1704,7 +1704,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势反转"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="close_to_low_5",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1724,7 +1724,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["反弹风险"],
         regime_sensitivity="超跌反弹有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="three_white_soldiers",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1744,7 +1744,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["形态失败"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="three_black_crows",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1764,7 +1764,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["形态失败"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="inside_bar",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1784,7 +1784,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["方向不确定"],
         regime_sensitivity="突破后有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="outside_bar",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1804,7 +1804,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["假突破"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="tweezer_top",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1824,7 +1824,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["形态失败"],
         regime_sensitivity="顶部反转有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="tweezer_bottom",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1844,7 +1844,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["形态失败"],
         regime_sensitivity="底部反转有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="candle_dragonfly",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1864,7 +1864,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["形态失败"],
         regime_sensitivity="底部反转有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="candle_gravestone",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1884,7 +1884,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["形态失败"],
         regime_sensitivity="顶部反转有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="candle_stealth_doji",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1904,7 +1904,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["方向不确定"],
         regime_sensitivity="趋势中继有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="consecutive_up_5",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1924,7 +1924,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势持续"],
         regime_sensitivity="趋势反转有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="consecutive_down_5",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1944,7 +1944,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势持续"],
         regime_sensitivity="超跌反弹有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="consecutive_up_10",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1964,7 +1964,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势持续"],
         regime_sensitivity="趋势反转有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="consecutive_down_10",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -1984,7 +1984,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势持续"],
         regime_sensitivity="超跌反弹有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="gap_fill_5d",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2004,7 +2004,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["市场联动"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="volume_ratio_up_day",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2024,7 +2024,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势反转"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="limit_up_count_20",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2044,7 +2044,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["涨停板流动性风险"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="limit_down_count_20",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2064,7 +2064,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["跌停板流动性风险"],
         regime_sensitivity="下跌市场有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="close_to_high_60",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2084,7 +2084,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势反转"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="close_to_low_60",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2104,7 +2104,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["反弹风险"],
         regime_sensitivity="超跌反弹有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="high_close_ratio",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2124,7 +2124,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势反转"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="low_close_ratio",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2144,7 +2144,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["反弹风险"],
         regime_sensitivity="超跌反弹有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="volume_price_div",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2164,7 +2164,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势持续"],
         regime_sensitivity="趋势反转有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="volume_sync_market",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2184,7 +2184,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["市场整体影响"],
         regime_sensitivity="高相关性市场",
     ))
-    
+
     catalog.register(FactorProfile(
         name="intraday_range_20",
         family=FactorFamily.TECHNICAL_PATTERN,
@@ -2204,7 +2204,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["高波动误导"],
         regime_sensitivity="高波动市",
     ))
-    
+
     catalog.register(FactorProfile(
         name="earnings_quality",
         family=FactorFamily.BEHAVIORAL,
@@ -2224,7 +2224,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["财务操纵"],
         regime_sensitivity="基本面驱动市场",
     ))
-    
+
     catalog.register(FactorProfile(
         name="turnover_rate",
         family=FactorFamily.BEHAVIORAL,
@@ -2244,7 +2244,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["高换手成本"],
         regime_sensitivity="高换手市场",
     ))
-    
+
     catalog.register(FactorProfile(
         name="price_depth_20",
         family=FactorFamily.BEHAVIORAL,
@@ -2264,7 +2264,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["流动性风险"],
         regime_sensitivity="低流动性市场",
     ))
-    
+
     catalog.register(FactorProfile(
         name="vwap_return_20",
         family=FactorFamily.BEHAVIORAL,
@@ -2284,7 +2284,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["高换手成本"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="retail_indicator",
         family=FactorFamily.BEHAVIORAL,
@@ -2304,7 +2304,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["数据不精确"],
         regime_sensitivity="机构主导市场",
     ))
-    
+
     catalog.register(FactorProfile(
         name="institutional_flow_20",
         family=FactorFamily.BEHAVIORAL,
@@ -2324,7 +2324,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["数据延迟"],
         regime_sensitivity="资金驱动市场",
     ))
-    
+
     catalog.register(FactorProfile(
         name="abnormal_vol_return",
         family=FactorFamily.BEHAVIORAL,
@@ -2344,7 +2344,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["假信号"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="gain_loss_asymmetry",
         family=FactorFamily.BEHAVIORAL,
@@ -2364,7 +2364,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["高波动干扰"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     catalog.register(FactorProfile(
         name="up_down_volume_ratio",
         family=FactorFamily.BEHAVIORAL,
@@ -2384,7 +2384,7 @@ def build_default_catalog() -> FactorCatalog:
         failure_modes=["趋势反转"],
         regime_sensitivity="趋势市有效",
     ))
-    
+
     return catalog
 
 
@@ -2403,26 +2403,26 @@ def get_filtered_pool(
     """根据条件筛选因子池"""
     factors = []
     exclude_families = exclude_families or []
-    
+
     for p in catalog.get_research_pool():
         # 家族过滤
         if p.family in exclude_families:
             continue
-        
+
         # IC过滤
         if p.ic_mean and p.ic_mean < min_ic:
             continue
-        
+
         # IR过滤
         if p.ic_ir and p.ic_ir < min_ir:
             continue
-        
+
         # 成本过滤
         if require_cost_threshold and not p.cost_threshold_30bp:
             continue
-        
+
         factors.append(p.name)
-    
+
     return factors
 
 
@@ -2431,26 +2431,26 @@ def print_factor_families_summary(catalog: FactorCatalog):
     print("\n" + "=" * 80)
     print("因子家族汇总")
     print("=" * 80)
-    
+
     for family in FactorFamily:
         profiles = catalog.get_by_family(family)
         if not profiles:
             continue
-        
+
         # 家族内因子数
         total = len(profiles)
         core = len([p for p in profiles if p.status == FactorStatus.CORE])
         backup = len([p for p in profiles if p.status == FactorStatus.BACKUP])
         observe = len([p for p in profiles if p.status == FactorStatus.OBSERVE])
         reject = len([p for p in profiles if p.status == FactorStatus.REJECT])
-        
+
         # 平均IC
         valid_ic = [p.ic_mean for p in profiles if p.ic_mean is not None]
         avg_ic = sum(valid_ic) / len(valid_ic) if valid_ic else 0
-        
+
         print(f"\n【{family.value.upper()}】{total}个因子 (核心:{core} 备用:{backup} 观察:{observe} 拒绝:{reject})")
         print(f"  平均IC: {avg_ic:.4f}")
-        
+
         # 列出核心和备用
         for p in profiles:
             if p.status in [FactorStatus.CORE, FactorStatus.BACKUP]:
@@ -2458,5 +2458,5 @@ def print_factor_families_summary(catalog: FactorCatalog):
                 ir_str = f"IR={p.ic_ir:.2f}" if p.ic_ir else ""
                 cost_str = "✅" if p.cost_threshold_30bp else "❌"
                 print(f"    {p.status.value}: {p.name:<20} {ic_str:<12} {ir_str:<10} 成本30bp:{cost_str}")
-    
+
     print("\n" + "=" * 80)

@@ -6,7 +6,6 @@
 """
 
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
@@ -18,16 +17,16 @@ class AnalystFactor:
     description: str
     economic_interpretation: str
     lookback: int
-    data_requirement: List[str]
+    data_requirement: list[str]
     formula: str
     ic_direction: str
     update_frequency: str = "weekly"  # daily, weekly, monthly, quarterly
 
 
-ANALYST_FACTORS: List[AnalystFactor] = [
+ANALYST_FACTORS: list[AnalystFactor] = [
 
     # ========== 一、盈利预测类 (12个) ==========
-    
+
     # EPS预测
     AnalystFactor(
         name="eps_forecast_1y",
@@ -77,7 +76,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
         ic_direction="positive",
         update_frequency="weekly",
     ),
-    
+
     # 净利润预测
     AnalystFactor(
         name="profit_forecast_1y",
@@ -103,7 +102,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
         ic_direction="positive",
         update_frequency="weekly",
     ),
-    
+
     # 营收预测
     AnalystFactor(
         name="revenue_forecast_1y",
@@ -129,7 +128,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
         ic_direction="positive",
         update_frequency="weekly",
     ),
-    
+
     # 超预期
     AnalystFactor(
         name="eps_surprise",
@@ -181,7 +180,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
     ),
 
     # ========== 二、评级类 (10个) ==========
-    
+
     AnalystFactor(
         name="rating_score",
         category="rating",
@@ -304,7 +303,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
     ),
 
     # ========== 三、预测修订类 (10个) ==========
-    
+
     # EPS修订
     AnalystFactor(
         name="eps_revision_1m",
@@ -354,7 +353,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
         ic_direction="positive",
         update_frequency="weekly",
     ),
-    
+
     # 净利润修订
     AnalystFactor(
         name="profit_revision_1m",
@@ -380,7 +379,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
         ic_direction="positive",
         update_frequency="weekly",
     ),
-    
+
     # 营收修订
     AnalystFactor(
         name="revenue_revision_1m",
@@ -394,7 +393,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
         ic_direction="positive",
         update_frequency="daily",
     ),
-    
+
     # 目标价相关
     AnalystFactor(
         name="target_price_upside",
@@ -434,7 +433,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
     ),
 
     # ========== 四、一致性预期类 (10个) ==========
-    
+
     # 共识度
     AnalystFactor(
         name="consensus_eps_std",
@@ -472,7 +471,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
         ic_direction="positive",
         update_frequency="weekly",
     ),
-    
+
     # 预测期限结构
     AnalystFactor(
         name="forecast_curvature",
@@ -498,7 +497,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
         ic_direction="conditional",
         update_frequency="weekly",
     ),
-    
+
     # 高覆盖vs低覆盖
     AnalystFactor(
         name="high_cover_eps",
@@ -524,7 +523,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
         ic_direction="positive",
         update_frequency="weekly",
     ),
-    
+
     # 时间加权
     AnalystFactor(
         name="recent_eps_weighted",
@@ -564,7 +563,7 @@ ANALYST_FACTORS: List[AnalystFactor] = [
     ),
 
     # ========== 五、目标价与估值类 (8个) ==========
-    
+
     AnalystFactor(
         name="target_price_to_52w_high",
         category="valuation_target",
@@ -664,17 +663,17 @@ ANALYST_FACTORS: List[AnalystFactor] = [
 ]
 
 
-def get_analyst_factors() -> List[AnalystFactor]:
+def get_analyst_factors() -> list[AnalystFactor]:
     """获取分析师因子列表"""
     return ANALYST_FACTORS
 
 
-def get_analyst_factors_by_category(category: str) -> List[AnalystFactor]:
+def get_analyst_factors_by_category(category: str) -> list[AnalystFactor]:
     """按类别获取分析师因子"""
     return [f for f in ANALYST_FACTORS if f.category == category]
 
 
-def get_analyst_factor_names() -> List[str]:
+def get_analyst_factor_names() -> list[str]:
     """获取所有分析师因子名称"""
     return [f.name for f in ANALYST_FACTORS]
 
@@ -686,13 +685,13 @@ def print_analyst_factor_summary():
     print("=" * 80)
     print(f"总计: {len(ANALYST_FACTORS)}个因子")
     print()
-    
+
     categories = {}
     for f in ANALYST_FACTORS:
         if f.category not in categories:
             categories[f.category] = []
         categories[f.category].append(f)
-    
+
     for cat, factors in sorted(categories.items(), key=lambda x: -len(x[1])):
         print(f"【{cat}】{len(factors)}个")
         for f in factors[:3]:

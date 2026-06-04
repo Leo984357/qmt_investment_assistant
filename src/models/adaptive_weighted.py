@@ -3,13 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from time import perf_counter
-from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 from src.core.logging_utils import get_logger
-
 
 logger = get_logger(__name__)
 
@@ -29,17 +27,17 @@ class RegimeWeightConfig:
     momentum_factors: list[str] = field(default_factory=lambda: ['mom250', 'mom120', 'mom60', 'close_to_high250'])
     quality_factors: list[str] = field(default_factory=lambda: ['roe', 'roa', 'ocf_per_share', 'operating_margin', 'gross_margin'])
     reversal_factors: list[str] = field(default_factory=lambda: ['rev20', 'rev10', 'short_term_reversal'])
-    
+
     bull_momentum_mult: float = 1.5
     bull_quality_mult: float = 1.2
     bull_value_mult: float = 0.8
     bull_reversal_mult: float = 0.5
-    
+
     bear_value_mult: float = 1.5
     bear_quality_mult: float = 1.3
     bear_momentum_mult: float = 0.3
     bear_reversal_mult: float = 0.8
-    
+
     ranging_reversal_mult: float = 1.5
     ranging_quality_mult: float = 1.3
     ranging_value_mult: float = 1.0
@@ -53,18 +51,18 @@ def detect_simple_regime(prices: pd.Series, short_window: int = 20, long_window:
     """
     if len(prices) < long_window:
         return 'ranging'
-    
+
     current = prices.iloc[-1]
     short_ma = prices.tail(short_window).mean()
     long_ma = prices.tail(long_window).mean()
-    
+
     # 趋势位置
     trend_pos = (current / long_ma - 1) if long_ma > 0 else 0
-    
+
     # 波动率
     returns = prices.pct_change().dropna()
     vol = returns.tail(short_window).std() * np.sqrt(252)
-    
+
     if trend_pos > 0.05 and short_ma > long_ma:
         return 'bull'
     elif trend_pos < -0.05 and short_ma < long_ma:
@@ -102,7 +100,7 @@ def get_regime_multipliers(factor_name: str, regime: str, config: RegimeWeightCo
             return config.ranging_value_mult
         elif factor_name in config.momentum_factors:
             return config.ranging_momentum_mult
-    
+
     return 1.0
 
 
@@ -125,7 +123,7 @@ class AdaptiveWeightConfig:
     decay_config: FactorDecayConfig = field(default_factory=FactorDecayConfig)
     enable_decay_monitor: bool = True  # 是否启用因子退化监控
     min_factor_weight: float = 0.05    # 因子最低权重
-    decay_backup_factors: Optional[list[str]] = None  # 备用因子列表
+    decay_backup_factors: list[str] | None = None  # 备用因子列表
 
 
 def _compute_exponential_ic_weights(
@@ -138,7 +136,7 @@ def _compute_exponential_ic_weights(
     """
     if len(ic_series) < 2:
         return np.array([1.0])
-    
+
     dates = ic_series.index
     weights = np.exp(-np.arange(len(ic_series) - 1, -1, -1) * np.log(2) / half_life)
     return weights / weights.sum()
@@ -158,18 +156,18 @@ def _compute_factor_decay_status(
     """
     if factor not in ic_history.columns:
         return 'active', 1.0
-    
+
     ic_series = ic_history[factor].dropna()
     if len(ic_series) < config.decay_lookback:
         return 'active', 1.0
-    
+
     recent_ic = ic_series.tail(config.decay_lookback)
-    
+
     # 检查1: 单次IC低于阈值
     latest_ic = recent_ic.iloc[-1]
     if latest_ic < config.decay_threshold_ic:
         return 'offline', 0.0
-    
+
     # 检查2: 连续负IC
     consecutive_neg = 0
     consecutive_pos = 0
@@ -182,7 +180,7 @@ def _compute_factor_decay_status(
             consecutive_neg = 0
         if consecutive_neg >= config.decay_consecutive_neg:
             break
-    
+
     if consecutive_neg >= config.decay_consecutive_neg * 3:
         return 'offline', 0.0
     elif consecutive_neg >= config.decay_consecutive_neg * 2:
@@ -191,12 +189,12 @@ def _compute_factor_decay_status(
         return 'reduced', config.decay_weight_cut
     elif consecutive_pos >= config.decay_consecutive_neg * 4:
         return 'active', 1.0
-    
+
     # 检查3: 正IC比例
     positive_rate = (recent_ic > 0).mean()
     if positive_rate < config.decay_min_positive_rate:
         return 'reduced', config.decay_weight_cut
-    
+
     return 'active', 1.0
 
 
@@ -214,19 +212,19 @@ class AdaptiveICWeightedModel:
     - 近期表现比长期平均更能预测未来
     - 因子失效时应减少暴露
     """
-    
+
     def __init__(
         self,
         feature_names: list[str],
-        config: Optional[AdaptiveWeightConfig] = None,
+        config: AdaptiveWeightConfig | None = None,
     ):
         self.feature_names = feature_names
         self.config = config or AdaptiveWeightConfig()
-        
+
         # 因子IC历史记录
         self._factor_ic_history: pd.DataFrame = pd.DataFrame()
         self._factor_weights_history: list[dict] = []
-    
+
     def fit_walk_forward(
         self,
         dataset: pd.DataFrame,
@@ -256,9 +254,9 @@ class AdaptiveICWeightedModel:
             train_end_idx = max(0, idx - int(label_horizon) - 1)
             train_start_idx = max(0, train_end_idx - self.config.ic_lookback)
             train_dates = unique_dates[train_start_idx:train_end_idx]
-            
+
             train_df = dataset.loc[dataset['trade_date'].isin(train_dates)].dropna(subset=feature_names + [label_name]).copy()
-            
+
             # 计算每日IC，然后指数加权
             ic_scores = {}
             ic_daily = {}
@@ -269,7 +267,7 @@ class AdaptiveICWeightedModel:
                         lambda x: x[f].corr(x[label_name]), include_groups=False
                     )
                     ic_daily[f] = daily_ic
-                    
+
                     # 指数加权IC
                     weights = _compute_exponential_ic_weights(daily_ic, self.config.ic_half_life)
                     weighted_ic = (daily_ic.values * weights).sum()
@@ -277,7 +275,7 @@ class AdaptiveICWeightedModel:
                 else:
                     ic_scores[f] = 0.001
                     ic_daily[f] = pd.Series(dtype=float)
-            
+
             # 更新IC历史
             for f, daily_ic in ic_daily.items():
                 if len(daily_ic) > 0:
@@ -286,7 +284,7 @@ class AdaptiveICWeightedModel:
                         'trade_date': daily_ic.index,
                         f: daily_ic.values
                     }).set_index('trade_date')
-                    
+
                     if self._factor_ic_history.empty:
                         self._factor_ic_history = new_records
                     else:
@@ -295,7 +293,7 @@ class AdaptiveICWeightedModel:
                             if idx not in self._factor_ic_history.index:
                                 self._factor_ic_history.loc[idx] = np.nan
                             self._factor_ic_history.loc[idx, f] = row[f]
-            
+
             # 因子退化监控
             decay_weights = {}
             decay_status = {}
@@ -306,14 +304,14 @@ class AdaptiveICWeightedModel:
                     )
                     decay_status[f] = status
                     decay_weights[f] = multiplier
-            
+
             # 计算最终权重
             base_weights = np.array([ic_scores.get(f, 0.001) for f in feature_names])
-            
+
             if self.config.enable_decay_monitor:
                 decay_array = np.array([decay_weights.get(f, 1.0) for f in feature_names])
                 base_weights = base_weights * decay_array
-            
+
             # 应用最低权重限制
             min_weight = self.config.min_factor_weight
             weights = np.maximum(base_weights, min_weight)
@@ -322,7 +320,7 @@ class AdaptiveICWeightedModel:
                 weights = weights / weight_sum
             else:
                 weights = np.ones(len(feature_names)) / len(feature_names)
-            
+
             # 记录权重历史
             weight_record = {
                 'signal_date': signal_date,
@@ -331,7 +329,7 @@ class AdaptiveICWeightedModel:
                 **{f'status_{f}': decay_status.get(f, 'active') for f in feature_names},
             }
             self._factor_weights_history.append(weight_record)
-            
+
             test_df = dataset.loc[dataset['trade_date'] == signal_date].dropna(subset=feature_names).copy()
             if test_df.empty:
                 continue
@@ -380,11 +378,11 @@ class AdaptiveICWeightedModel:
             feature_importance=feature_importance,
             model_registry=model_registry,
         )
-    
+
     def get_factor_ic_history(self) -> pd.DataFrame:
         """获取因子IC历史"""
         return self._factor_ic_history.copy()
-    
+
     def get_weight_history(self) -> pd.DataFrame:
         """获取权重历史"""
         return pd.DataFrame(self._factor_weights_history)
@@ -404,12 +402,12 @@ class RegimeAwareAdaptiveModel:
     - 熊市投资者悲观, 价值防御性强, 低估值股票抗跌
     - 震荡市方向不明, 超跌反弹机会多, 反转有效
     """
-    
+
     def __init__(
         self,
         feature_names: list[str],
-        config: Optional[AdaptiveWeightConfig] = None,
-        regime_config: Optional[RegimeWeightConfig] = None,
+        config: AdaptiveWeightConfig | None = None,
+        regime_config: RegimeWeightConfig | None = None,
         regime_short_window: int = 20,
         regime_long_window: int = 60,
     ):
@@ -419,8 +417,8 @@ class RegimeAwareAdaptiveModel:
         self.regime_short_window = regime_short_window
         self.regime_long_window = regime_long_window
         self._base_model = AdaptiveICWeightedModel(feature_names, config)
-        self._market_prices: Optional[pd.Series] = None
-    
+        self._market_prices: pd.Series | None = None
+
     def fit_walk_forward(
         self,
         dataset: pd.DataFrame,
@@ -429,10 +427,10 @@ class RegimeAwareAdaptiveModel:
         rebalance_dates: list[pd.Timestamp],
         artifact_dir: Path,
         label_horizon: int = 0,
-        market_index: Optional[pd.Series] = None,
+        market_index: pd.Series | None = None,
     ) -> RollingModelResult:
         """walk forward训练, 支持市场状态检测"""
-        
+
         # 如果提供了市场指数, 构建价格序列
         if market_index is not None:
             self._market_prices = market_index
@@ -441,7 +439,7 @@ class RegimeAwareAdaptiveModel:
             idx_data = dataset[['trade_date', '000300.SH']].dropna()
             if len(idx_data) > 0:
                 self._market_prices = idx_data.set_index('trade_date')['000300.SH'].sort_index()
-        
+
         # 使用基础模型进行walk-forward
         result = self._base_model.fit_walk_forward(
             dataset=dataset,
@@ -451,7 +449,7 @@ class RegimeAwareAdaptiveModel:
             artifact_dir=artifact_dir,
             label_horizon=label_horizon,
         )
-        
+
         # 添加市场状态列
         if len(result.predictions) > 0 and self._market_prices is not None:
             result.predictions['regime'] = result.predictions['signal_date'].apply(
@@ -461,9 +459,9 @@ class RegimeAwareAdaptiveModel:
                     self.regime_long_window
                 )
             )
-        
+
         return result
-    
+
     def compute_regime_aware_scores(
         self,
         scores: pd.Series,
@@ -473,23 +471,23 @@ class RegimeAwareAdaptiveModel:
         """根据市场状态调整分数"""
         if self._market_prices is None:
             return scores
-        
+
         # 检测当前市场状态
         prices = self._market_prices.loc[:signal_date]
         regime = detect_simple_regime(prices, self.regime_short_window, self.regime_long_window)
-        
+
         # 应用状态倍率
         multipliers = {
             f: get_regime_multipliers(f, regime, self.regime_config)
             for f in factor_names
         }
-        
+
         return scores  # 实际调整在模型层面做
 
 
 class ICWeightedAverageModel:
     """原始IC加权模型 (保留兼容性)"""
-    
+
     def __init__(
         self,
         feature_names: list[str],
@@ -499,7 +497,7 @@ class ICWeightedAverageModel:
         self.feature_names = feature_names
         self.ic_weights = ic_weights or {}
         self.lookback_days = lookback_days
-        
+
     def fit_walk_forward(
         self,
         dataset: pd.DataFrame,
@@ -529,9 +527,9 @@ class ICWeightedAverageModel:
             train_end_idx = max(0, idx - int(label_horizon) - 1)
             train_start_idx = max(0, train_end_idx - self.lookback_days)
             train_dates = unique_dates[train_start_idx:train_end_idx]
-            
+
             train_df = dataset.loc[dataset['trade_date'].isin(train_dates)].dropna(subset=feature_names + [label_name]).copy()
-            
+
             ic_scores = {}
             for f in feature_names:
                 valid = train_df[['trade_date', f, label_name]].dropna()
@@ -542,10 +540,10 @@ class ICWeightedAverageModel:
                     ic_scores[f] = max(ic, 0.001)
                 else:
                     ic_scores[f] = 0.001
-            
+
             weights = np.array([ic_scores.get(f, 0.001) for f in feature_names])
             weights = weights / weights.sum()
-            
+
             test_df = dataset.loc[dataset['trade_date'] == signal_date].dropna(subset=feature_names).copy()
             if test_df.empty:
                 continue
@@ -595,7 +593,7 @@ class ICWeightedAverageModel:
 
 class SimpleAverageModel:
     """简单平均模型 (保留兼容性)"""
-    
+
     def __init__(
         self,
         feature_names: list[str],

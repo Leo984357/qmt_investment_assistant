@@ -11,11 +11,8 @@
 3. 季度内使用相同值
 """
 
-import pandas as pd
-import numpy as np
-from typing import Dict, List
-from datetime import datetime
 
+import pandas as pd
 
 # 财报发布规则
 REPORT_SCHEDULE = {
@@ -39,7 +36,7 @@ def get_financial_report_period(trade_date: pd.Timestamp) -> str:
     year = trade_date.year
     month = trade_date.month
     day = trade_date.day
-    
+
     # 判断当前处于哪个财报周期
     if month < 4:
         # 1-3月：只能用到去年的Q3（10月发布）
@@ -57,7 +54,7 @@ def get_financial_report_period(trade_date: pd.Timestamp) -> str:
 
 def lag_financial_data(
     df: pd.DataFrame,
-    financial_cols: List[str],
+    financial_cols: list[str],
     lag_days: int = 60,
     report_period_col: str = None
 ) -> pd.DataFrame:
@@ -74,32 +71,32 @@ def lag_financial_data(
         lag处理后的DataFrame
     """
     df = df.copy()
-    
+
     # 按日期排序
     df = df.sort_values(['symbol', 'trade_date'])
-    
+
     # 对每个财务因子进行lag
     for col in financial_cols:
         if col not in df.columns:
             continue
-        
+
         print(f"  处理 {col}...")
-        
+
         # lag N天
         df[f'{col}_lagged'] = df.groupby('symbol')[col].shift(lag_days)
-        
+
         # 季度内填充：同一个季度内使用同一值
         if report_period_col and report_period_col in df.columns:
             df[f'{col}_filled'] = df.groupby(['symbol', report_period_col])[f'{col}_lagged'].fillna(method='ffill')
         else:
             df[f'{col}_filled'] = df[f'{col}_lagged'].fillna(method='ffill')
-        
+
         # 替换原列
         df[col] = df[f'{col}_filled']
-        
+
         # 删除临时列
         df.drop([f'{col}_lagged', f'{col}_filled'], axis=1, inplace=True)
-    
+
     return df
 
 
@@ -118,7 +115,7 @@ def add_report_period(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def validate_financial_lag(df: pd.DataFrame, financial_cols: List[str]) -> Dict:
+def validate_financial_lag(df: pd.DataFrame, financial_cols: list[str]) -> dict:
     """
     验证财务数据lag处理是否正确
     
@@ -135,28 +132,28 @@ def validate_financial_lag(df: pd.DataFrame, financial_cols: List[str]) -> Dict:
         'issues': [],
         'warnings': [],
     }
-    
+
     for col in financial_cols:
         if col not in df.columns:
             report['issues'].append(f"{col} not found in dataframe")
             continue
-        
+
         # 检查是否有未来值
         lagged = df.groupby('symbol')[col].shift(-1)
         future_diff = (df[col] - lagged).abs().mean()
-        
+
         if future_diff > 0.01:  # 如果未来值变化超过1%，可能有未来函数
             report['warnings'].append(
                 f"{col}: 平均未来变化={future_diff:.4f}，可能存在未来函数"
             )
-        
+
         # 检查覆盖率
         coverage = df[col].notna().mean()
         if coverage < 0.5:
             report['warnings'].append(
                 f"{col}: 覆盖率={coverage:.1%}，过低"
             )
-    
+
     return report
 
 
@@ -169,7 +166,7 @@ if __name__ == '__main__':
     print("\n财报发布规则:")
     for q, info in REPORT_SCHEDULE.items():
         print(f"  {q}: {info['month']}月{info['max_day']}日前")
-    
+
     print("\n使用示例:")
     print("""
     from src.features.financial_lag import lag_financial_data, add_report_period
