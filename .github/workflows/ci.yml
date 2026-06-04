@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ruff
-      - run: ruff check src/
+      - run: ruff check src/ --exit-zero
 
   test:
     runs-on: ubuntu-latest

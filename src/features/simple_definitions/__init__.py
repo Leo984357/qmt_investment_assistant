@@ -1459,6 +1459,51 @@ def simple_factor_registry() -> FeatureRegistry:
             preprocessing=('winsorize', 'cross_sectional_scale'),
         ))
 
+    # ===== Pool Mapping Stubs (targets referenced by POOL_TO_SIMPLE_MAPPING but not yet defined) =====
+    pool_stub_names = [
+        'accruals', 'adx14', 'adx28', 'altman_zscore', 'analyst_coverage',
+        'analyst_performance_rank', 'ar_turnover', 'ar_turnover_days',
+        'avg_analyst_return', 'avg_pe_2026', 'bid_ask_spread', 'book_growth',
+        'book_leverage', 'candle_body_ratio', 'candle_doji', 'candle_lower_shadow',
+        'candle_upper_shadow', 'cash_profitability', 'cash_ratio', 'cashflow_yield',
+        'close_position_120d', 'close_position_20d', 'close_position_60d',
+        'consecutive_down', 'consecutive_up', 'consensus_estimate', 'debt_equity',
+        'dividend_payout_ratio', 'dividend_yield', 'donchian_position',
+        'earning_surprise_proxy', 'earnings_momentum', 'earnings_quality',
+        'ebitda_margin', 'equity_growth', 'equity_ratio', 'estimate_dispersion',
+        'ev_ebitda', 'financial_leverage', 'fixasset_turnover', 'flow_momentum',
+        'forecast_breadth', 'forecast_dispersion', 'forecast_growth', 'gap_size',
+        'hml', 'idio_mkt_corr', 'idio_vol', 'inst_ownership', 'institution_coverage',
+        'institutional_intensity', 'intangibles_ratio', 'interest_coverage_ratio',
+        'inv_turnover', 'large_flow_ratio', 'ln_market_cap', 'ln_total_assets',
+        'longterm_debt_ratio', 'macd', 'main_flow_rank', 'margin_change',
+        'market_beta', 'market_leverage', 'max_daily_return', 'mom_12_1',
+        'momentum_20d', 'momentum_divergence_20d', 'money_flow_20d',
+        'money_flow_intensity', 'money_flow_ratio', 'net_flow_5d', 'new_high_20d',
+        'new_low_20d', 'obv_momentum_10', 'operating_leverage', 'pct_b_20',
+        'price_impact_20d', 'quick_ratio', 'rating_change', 'relative_volume_20d',
+        'research_report_count', 'roe_change', 'roe_weighted', 'rsi14',
+        'sales_to_price', 'sector_adj_trend_strength', 'sector_adj_up_day_ratio',
+        'sector_adj_volume_momentum', 'sector_analyst_breadth', 'sector_beta',
+        'sector_correlation', 'sector_inflow_rank', 'sector_mom_20d',
+        'sector_mom_60d', 'sector_regime', 'sector_rs_20d', 'sector_volume_trend',
+        'size_nonlinear', 'smb', 'super_flow_mean', 'target_price_ratio',
+        'total_roa', 'trend_strength_20d', 'trend_strength_60d', 'trix_15',
+        'turnover_rate', 'up_day_ratio_20d', 'vol_120', 'vol_20',
+        'volume_momentum_20d', 'volume_momentum_5d', 'volume_price_correlation',
+        'volume_trend_20d', 'working_capital_ratio', 'zero_days_ratio',
+    ]
+    for stub_name in pool_stub_names:
+        registry.register(FeatureSpec(
+            name=stub_name,
+            inputs=(),
+            lookback=1,
+            description=f'Pool-mapping stub (not yet implemented): {stub_name}',
+            compute=_financial_constant(stub_name, 0.0),
+            category='pool_stub',
+            preprocessing=('winsorize', 'cross_sectional_scale'),
+        ))
+
     # Register factor-pool aliases after all canonical factors are available.
     try:
         from src.features.factor_pool import POOL_TO_SIMPLE_MAPPING
